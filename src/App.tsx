@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Navbar, ActiveTab } from './components/Navbar';
-import { ClipFinderTab } from './components/ClipFinderTab';
-import { StudioTab } from './components/StudioTab';
-import { TimelineEditorTab } from './components/TimelineEditorTab';
-import { ThesisEvaluationTab } from './components/ThesisEvaluationTab';
+import { Sidebar, MainView } from './components/Sidebar';
+import { LayarBeranda } from './components/LayarBeranda';
+import { LayarKlip } from './components/LayarKlip';
+import { LayarMotion } from './components/LayarMotion';
+import { LayarRiwayat } from './components/LayarRiwayat';
+import { ModalPengaturan } from './components/ModalPengaturan';
 
 import {
   DetectedTarget,
@@ -23,9 +24,12 @@ import { subtitleEngine } from './engine/subtitleEngine';
 import { hookScorer } from './engine/hookScorer';
 import { telemetryAudit } from './engine/telemetryAudit';
 import { demoSceneSimulator } from './engine/demoSceneSimulator';
+import { Minus, Square, X, Tv } from 'lucide-react';
 
 export function App() {
-  const [activeTab, setActiveTab] = useState<ActiveTab>('studio');
+  const [currentView, setCurrentView] = useState<MainView>('klip');
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState<boolean>(false);
+
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [duration, setDuration] = useState<number>(16.0);
@@ -51,12 +55,13 @@ export function App() {
   const [isSafeZoneEnabled, setIsSafeZoneEnabled] = useState<boolean>(true);
 
   // Subtitle styling state
-  const [activeStyle, setActiveStyle] = useState<KineticStyleId>('LimeBox');
+  const [activeStyle, setActiveStyle] = useState<KineticStyleId>('KotakHijau');
   const [fontSize, setFontSize] = useState<number>(32);
   const [segments, setSegments] = useState<SubtitleSegment[]>(subtitleEngine.getSegments());
 
   // Moments & Telemetry
   const [viralMoments, setViralMoments] = useState<ViralMoment[]>([]);
+  const [selectedMoment, setSelectedMoment] = useState<ViralMoment | null>(null);
   const [fps, setFps] = useState<number>(60);
   const [telemetry, setTelemetry] = useState<TelemetryMetrics>(
     telemetryAudit.getLiveTelemetry(60, 2.8, 0.42, true)
@@ -92,7 +97,7 @@ export function App() {
   const [isExporting, setIsExporting] = useState<boolean>(false);
   const [exportProgress, setExportProgress] = useState<number>(0);
 
-  // Audio Context for real audio analysis (Web Audio API)
+  // Audio Context for Web Audio API
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const audioDataArrayRef = useRef<Uint8Array<ArrayBuffer> | null>(null);
@@ -114,13 +119,10 @@ export function App() {
     // Detect initial viral moments
     const initialMoments = hookScorer.detectViralMoments(segments, duration);
     setViralMoments(initialMoments);
+    if (initialMoments.length > 0) {
+      setSelectedMoment(initialMoments[0]);
+    }
   }, []);
-
-  // Update moments when segments or duration change
-  useEffect(() => {
-    const moments = hookScorer.detectViralMoments(segments, duration);
-    setViralMoments(moments);
-  }, [segments, duration]);
 
   // Handle uploaded video file
   const handleUploadFile = (file: File) => {
@@ -147,6 +149,15 @@ export function App() {
       });
       currentTimeRef.current = 0;
       setCurrentTime(0);
+
+      // Generate viral moments for uploaded video
+      const newMoments = hookScorer.detectViralMoments(segments, video.duration);
+      setViralMoments(newMoments);
+      if (newMoments.length > 0) {
+        setSelectedMoment(newMoments[0]);
+      }
+
+      setCurrentView('klip');
       setIsPlaying(true);
     };
 
@@ -170,7 +181,7 @@ export function App() {
     }
   };
 
-  const handleSelectDemo = () => {
+  const handleLoadYouTubeUrl = (url: string, title?: string, clipCount: number = 5) => {
     if (uploadedVideoUrl) {
       URL.revokeObjectURL(uploadedVideoUrl);
       setUploadedVideoUrl(null);
@@ -179,32 +190,7 @@ export function App() {
       videoElemRef.current.pause();
       videoElemRef.current = null;
     }
-    setDuration(16.0);
-    setCurrentSource({
-      id: 'demo-procedural',
-      name: 'KlipFlow AI — Multi-Target Speech & Slide Presentation Demo',
-      duration: 16.0,
-      width: 1920,
-      height: 1080,
-      aspectRatio: 16 / 9,
-      isDemo: true,
-    });
-    currentTimeRef.current = 0;
-    setCurrentTime(0);
-    setActiveTab('studio');
-    setIsPlaying(true);
-  };
-
-  const handleLoadYouTubeUrl = (url: string, title?: string) => {
-    if (uploadedVideoUrl) {
-      URL.revokeObjectURL(uploadedVideoUrl);
-      setUploadedVideoUrl(null);
-    }
-    if (videoElemRef.current) {
-      videoElemRef.current.pause();
-      videoElemRef.current = null;
-    }
-    const cleanTitle = title || 'Video YouTube (KlipFlow)';
+    const cleanTitle = title || 'Video Presentasi & Wawancara KlipFlow';
     setCurrentSource({
       id: `yt-${Date.now()}`,
       name: cleanTitle,
@@ -215,17 +201,27 @@ export function App() {
       isDemo: true,
       url,
     });
-    currentTimeRef.current = 0;
-    setCurrentTime(0);
-    setActiveTab('studio');
+
+    // Detect viral moments
+    const allMoments = hookScorer.detectViralMoments(segments, 16.0);
+    const sliced = allMoments.slice(0, Math.min(clipCount, allMoments.length));
+    setViralMoments(sliced);
+    if (sliced.length > 0) {
+      setSelectedMoment(sliced[0]);
+      currentTimeRef.current = sliced[0].startTime;
+      setCurrentTime(sliced[0].startTime);
+      setActiveMode(sliced[0].recommendedMode);
+    }
+
+    setCurrentView('klip');
     setIsPlaying(true);
   };
 
   const handleSelectMoment = (moment: ViralMoment) => {
+    setSelectedMoment(moment);
     currentTimeRef.current = moment.startTime;
     setCurrentTime(moment.startTime);
     setActiveMode(moment.recommendedMode);
-    setActiveTab('studio');
     setIsPlaying(true);
   };
 
@@ -242,29 +238,13 @@ export function App() {
     setSegments([...subtitleEngine.getSegments()]);
   };
 
-  const handleImportSRT = (content: string) => {
-    subtitleEngine.importFromSRT(content);
-    setSegments([...subtitleEngine.getSegments()]);
-  };
-
   const handleExportSRT = () => {
     const srtText = subtitleEngine.exportToSRT();
     const blob = new Blob([srtText], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `KlipFlow_Subtitles_${Date.now()}.srt`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const handleExportJSON = () => {
-    const jsonText = subtitleEngine.exportToJSON();
-    const blob = new Blob([jsonText], { type: 'application/json;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `KlipFlow_Words_${Date.now()}.json`;
+    a.download = `StudioMaliki_Subtitles_${Date.now()}.srt`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -274,12 +254,11 @@ export function App() {
     let animId: number;
 
     const renderLoop = () => {
-      // Advance playback time
       const now = performance.now();
       const dt = Math.min(0.1, (now - lastFrameTimeRef.current) / 1000);
       lastFrameTimeRef.current = now;
 
-      // Update FPS counter every 500ms
+      // FPS counter every 500ms
       frameCountRef.current++;
       if (now - fpsTimerRef.current >= 500) {
         const computedFps = Math.round((frameCountRef.current * 1000) / (now - fpsTimerRef.current));
@@ -308,7 +287,6 @@ export function App() {
           let rawDetections: RawDetection[] = [];
 
           if (currentSource.isDemo) {
-            // Render demo procedural scene
             const frameData = demoSceneSimulator.renderSourceFrame(
               offCtx,
               offscreen.width,
@@ -317,9 +295,7 @@ export function App() {
             );
             rawDetections = frameData.detections;
           } else if (videoElemRef.current && videoElemRef.current.readyState >= 2) {
-            // Draw uploaded video
             offCtx.drawImage(videoElemRef.current, 0, 0, offscreen.width, offscreen.height);
-            // Simulated AI detections on uploaded video
             rawDetections = [
               {
                 box: { x: 0.32, y: 0.20, width: 0.18, height: 0.32 },
@@ -349,7 +325,6 @@ export function App() {
           // 3. Multi-Target ByteTrack update
           const tracked = multiTargetTracker.update(rawDetections, curTime);
 
-          // Evaluate Active Speaker Detector (Light-ASD)
           for (const target of tracked) {
             if (target.category === 'speaker_face') {
               const asdRes = activeSpeakerDetector.evaluateSpeaker(target, audioFeatures, curTime);
@@ -359,7 +334,7 @@ export function App() {
             }
           }
 
-          // 4. Kalman Reframing & Auto Split-Screen Decision
+          // 4. Kalman Reframing
           const computedReframing = cameraReframer.computeReframing(
             tracked,
             curTime,
@@ -367,7 +342,6 @@ export function App() {
             isKalmanEnabled
           );
 
-          // Update live telemetry metrics
           const liveTel = telemetryAudit.getLiveTelemetry(
             fps,
             computedReframing.cameraJitterRaw,
@@ -375,7 +349,7 @@ export function App() {
             isKalmanEnabled
           );
 
-          // Throttled UI state updates (10Hz) to keep React thread 100% smooth & responsive
+          // Throttled UI state updates (10Hz) to keep React thread smooth
           if (now - lastUiUpdateRef.current >= 100) {
             setCurrentTime(curTime);
             setActiveTargets(tracked);
@@ -395,7 +369,6 @@ export function App() {
 
               if (computedReframing.isSplitScreenActive && computedReframing.splitTopCrop && computedReframing.splitBottomCrop) {
                 // Auto Split-Screen Render:
-                // Top (58%): Explained Object / Wide Context
                 const topCrop = computedReframing.splitTopCrop;
                 const topH = H * computedReframing.splitRatio;
 
@@ -411,21 +384,18 @@ export function App() {
                   topH
                 );
 
-                // Top label overlay
                 ctx9.fillStyle = 'rgba(6, 182, 212, 0.85)';
                 ctx9.fillRect(16, 16, 170, 24);
                 ctx9.fillStyle = '#ffffff';
                 ctx9.font = 'bold 11px Inter, sans-serif';
                 ctx9.fillText('TOP: EXPLAINED OBJECT', 24, 32);
 
-                // Split divider bar with neon glow
                 ctx9.fillStyle = '#06b6d4';
                 ctx9.shadowColor = '#06b6d4';
                 ctx9.shadowBlur = 12;
                 ctx9.fillRect(0, topH - 3, W, 6);
                 ctx9.shadowBlur = 0;
 
-                // Bottom (42%): Active Speaker Close-up
                 const btmCrop = computedReframing.splitBottomCrop;
                 const btmH = H - topH;
 
@@ -441,14 +411,12 @@ export function App() {
                   btmH
                 );
 
-                // Bottom label overlay
-                ctx9.fillStyle = 'rgba(163, 230, 53, 0.85)';
+                ctx9.fillStyle = 'rgba(16, 185, 129, 0.85)';
                 ctx9.fillRect(16, topH + 16, 175, 24);
                 ctx9.fillStyle = '#090d16';
                 ctx9.font = 'bold 11px Inter, sans-serif';
                 ctx9.fillText('BOTTOM: ACTIVE SPEAKER', 24, topH + 32);
               } else {
-                // Single 9:16 Crop Render
                 const crop = computedReframing.cropBox;
                 ctx9.drawImage(
                   offscreen,
@@ -469,7 +437,7 @@ export function App() {
             }
           }
 
-          // 6. Draw Source 16:9 Vision Monitor with Overlays
+          // 6. Draw Source 16:9 Vision Monitor if available
           const c16x9 = source16x9Ref.current;
           if (c16x9) {
             const ctx16 = c16x9.getContext('2d');
@@ -477,57 +445,23 @@ export function App() {
               const sw = c16x9.width;
               const sh = c16x9.height;
               ctx16.clearRect(0, 0, sw, sh);
-
-              // Draw base video frame
               ctx16.drawImage(offscreen, 0, 0, sw, sh);
 
               if (showOverlays) {
-                // Draw 9:16 Crop Window Viewport Box (Lime outline)
                 const cb = computedReframing.cropBox;
-                ctx16.strokeStyle = '#a3e635';
+                ctx16.strokeStyle = '#06b6d4';
                 ctx16.lineWidth = 3;
-                ctx16.shadowColor = 'rgba(163, 230, 53, 0.5)';
+                ctx16.shadowColor = 'rgba(6, 182, 212, 0.5)';
                 ctx16.shadowBlur = 8;
                 ctx16.strokeRect(cb.x * sw, cb.y * sh, cb.width * sw, cb.height * sh);
                 ctx16.shadowBlur = 0;
 
-                // Viewport center target point
                 const cx = computedReframing.smoothedCenter[0] * sw;
                 const cy = computedReframing.smoothedCenter[1] * sh;
-                ctx16.fillStyle = '#a3e635';
+                ctx16.fillStyle = '#06b6d4';
                 ctx16.beginPath();
                 ctx16.arc(cx, cy, 6, 0, Math.PI * 2);
                 ctx16.fill();
-
-                // Draw Tracked Bounding Boxes
-                for (const t of tracked) {
-                  const bx = t.box.x * sw;
-                  const by = t.box.y * sh;
-                  const bw = t.box.width * sw;
-                  const bh = t.box.height * sh;
-
-                  let boxColor = '#38bdf8'; // Cyan for objects
-                  if (t.category === 'speaker_face') {
-                    boxColor = t.isSpeaking ? '#a3e635' : '#f59e0b'; // Lime if speaking, Amber if silent
-                  } else if (t.category === 'speaker_hand_gesture') {
-                    boxColor = '#ec4899'; // Pink for gesture
-                  }
-
-                  ctx16.strokeStyle = boxColor;
-                  ctx16.lineWidth = 2;
-                  ctx16.strokeRect(bx, by, bw, bh);
-
-                  // Label tag badge
-                  ctx16.fillStyle = 'rgba(15, 23, 42, 0.85)';
-                  ctx16.fillRect(bx, by - 22, 140, 20);
-                  ctx16.fillStyle = boxColor;
-                  ctx16.font = 'bold 11px Inter, sans-serif';
-                  ctx16.fillText(
-                    `ID#${t.id} ${t.category === 'speaker_face' ? (t.isSpeaking ? 'ACTIVE' : 'SILENT') : 'OBJ'}`,
-                    bx + 6,
-                    by - 8
-                  );
-                }
               }
             }
           }
@@ -549,7 +483,7 @@ export function App() {
     isSafeZoneEnabled,
   ]);
 
-  // Hardware-Accelerated Video Exporter (WebM via Canvas MediaRecorder)
+  // Video Exporter
   const handleExportVideo = useCallback(() => {
     const c9x16 = canvas9x16Ref.current;
     if (!c9x16 || isExporting) return;
@@ -574,7 +508,7 @@ export function App() {
         const url = URL.createObjectURL(fullBlob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `KlipFlow_9x16_Output_${Date.now()}.webm`;
+        a.download = `StudioMaliki_9x16_Output_${Date.now()}.webm`;
         a.click();
         URL.revokeObjectURL(url);
         setIsExporting(false);
@@ -583,8 +517,7 @@ export function App() {
 
       recorder.start();
 
-      // Record for 6 seconds as a high-quality demonstration clip
-      const exportTotalMs = 6000;
+      const exportTotalMs = 4000;
       const exportInterval = setInterval(() => {
         setExportProgress((prev) => {
           if (prev >= 95) {
@@ -592,9 +525,9 @@ export function App() {
             recorder.stop();
             return 100;
           }
-          return prev + 10;
+          return prev + 15;
         });
-      }, exportTotalMs / 10);
+      }, exportTotalMs / 7);
     } catch (err) {
       console.error('MediaRecorder error:', err);
       setIsExporting(false);
@@ -602,93 +535,120 @@ export function App() {
   }, [isExporting]);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
-      {/* Top Universal Navbar */}
-      <Navbar
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        fps={fps}
-        isKalmanActive={isKalmanEnabled}
+    <div className="min-h-screen bg-[#080c14] text-slate-100 flex flex-col font-sans select-none antialiased">
+      {/* Windows App Title Bar matching Studio-Maliki-Windows.exe */}
+      <div className="h-8 bg-[#0b0f19] border-b border-slate-800/80 px-3 flex items-center justify-between text-xs text-slate-400 select-none">
+        <div className="flex items-center gap-2">
+          <div className="w-3.5 h-3.5 rounded bg-blue-600 flex items-center justify-center text-white">
+            <Tv className="w-2.5 h-2.5 fill-white" />
+          </div>
+          <span className="font-semibold text-slate-200 text-[11px]">Studio Maliki</span>
+        </div>
+
+        {/* Window controls */}
+        <div className="flex items-center gap-2">
+          <button className="w-6 h-6 flex items-center justify-center hover:bg-slate-800 rounded text-slate-400 hover:text-white transition-colors">
+            <Minus className="w-3 h-3" />
+          </button>
+          <button className="w-6 h-6 flex items-center justify-center hover:bg-slate-800 rounded text-slate-400 hover:text-white transition-colors">
+            <Square className="w-2.5 h-2.5" />
+          </button>
+          <button className="w-6 h-6 flex items-center justify-center hover:bg-rose-900/60 rounded text-slate-400 hover:text-rose-300 transition-colors">
+            <X className="w-3 h-3" />
+          </button>
+        </div>
+      </div>
+
+      {/* Main App Layout: Left Sidebar + Right Content */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Left Sidebar */}
+        <Sidebar
+          currentView={currentView}
+          onSelectView={(view) => setCurrentView(view)}
+          onOpenSettings={() => setIsSettingsModalOpen(true)}
+        />
+
+        {/* Right Content Area */}
+        <main className="flex-1 flex flex-col overflow-hidden">
+          {currentView === 'beranda' && (
+            <LayarBeranda
+              onBukaKlip={() => setCurrentView('klip')}
+              onBukaMotion={() => setCurrentView('motion')}
+              totalKlipCount={viralMoments.length}
+            />
+          )}
+
+          {currentView === 'klip' && (
+            <LayarKlip
+              currentSource={currentSource}
+              viralMoments={viralMoments}
+              selectedMoment={selectedMoment}
+              onSelectMoment={handleSelectMoment}
+              onUploadFile={handleUploadFile}
+              onLoadYouTubeUrl={handleLoadYouTubeUrl}
+              currentTime={currentTime}
+              duration={duration}
+              isPlaying={isPlaying}
+              onTogglePlay={() => setIsPlaying(!isPlaying)}
+              onSeek={(t) => {
+                currentTimeRef.current = t;
+                setCurrentTime(t);
+                if (videoElemRef.current) videoElemRef.current.currentTime = t;
+              }}
+              onReset={() => {
+                currentTimeRef.current = 0;
+                setCurrentTime(0);
+                if (videoElemRef.current) videoElemRef.current.currentTime = 0;
+              }}
+              reframingState={reframingState}
+              activeMode={activeMode}
+              onSetMode={(m) => setActiveMode(m)}
+              isKalmanEnabled={isKalmanEnabled}
+              onToggleKalman={() => setIsKalmanEnabled(!isKalmanEnabled)}
+              showOverlays={showOverlays}
+              onToggleOverlays={() => setShowOverlays(!showOverlays)}
+              isSafeZoneEnabled={isSafeZoneEnabled}
+              onToggleSafeZone={() => setIsSafeZoneEnabled(!isSafeZoneEnabled)}
+              activeStyle={activeStyle}
+              onSetStyle={(st) => {
+                setActiveStyle(st);
+                subtitleEngine.setStyle(st);
+              }}
+              fontSize={fontSize}
+              onSetFontSize={(sz) => setFontSize(sz)}
+              canvas9x16Ref={canvas9x16Ref}
+              source16x9Ref={source16x9Ref}
+              activeTargets={activeTargets}
+              currentSegment={subtitleEngine.getCurrentSegment(currentTime).segment}
+              segments={segments}
+              onUpdateWord={handleUpdateWord}
+              onExportVideo={handleExportVideo}
+              isExporting={isExporting}
+              exportProgress={exportProgress}
+              onExportSRT={handleExportSRT}
+              telemetry={telemetry}
+            />
+          )}
+
+          {currentView === 'motion' && <LayarMotion />}
+
+          {currentView === 'riwayat' && (
+            <LayarRiwayat
+              viralMoments={viralMoments}
+              onSelectMoment={handleSelectMoment}
+              onNavigateKlip={() => setCurrentView('klip')}
+            />
+          )}
+        </main>
+      </div>
+
+      {/* Setup Wizard / Settings Modal */}
+      <ModalPengaturan
+        isOpen={isSettingsModalOpen}
+        onClose={() => setIsSettingsModalOpen(false)}
+        onNavigateKlip={() => setCurrentView('klip')}
+        onNavigateMotion={() => setCurrentView('motion')}
       />
-
-      {/* Main Tab Content View */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-3.5 sm:p-6">
-        {activeTab === 'clipFinder' && (
-          <ClipFinderTab
-            currentSource={currentSource}
-            onSelectDemo={handleSelectDemo}
-            onUploadFile={handleUploadFile}
-            viralMoments={viralMoments}
-            onSelectMoment={handleSelectMoment}
-            onLoadYouTubeUrl={handleLoadYouTubeUrl}
-          />
-        )}
-
-        {activeTab === 'studio' && (
-          <StudioTab
-            currentTime={currentTime}
-            duration={duration}
-            isPlaying={isPlaying}
-            onTogglePlay={() => setIsPlaying(!isPlaying)}
-            onSeek={(t) => {
-              currentTimeRef.current = t;
-              setCurrentTime(t);
-              if (videoElemRef.current) videoElemRef.current.currentTime = t;
-            }}
-            onReset={() => {
-              currentTimeRef.current = 0;
-              setCurrentTime(0);
-              if (videoElemRef.current) videoElemRef.current.currentTime = 0;
-            }}
-            reframingState={reframingState}
-            activeMode={activeMode}
-            onSetMode={(m) => setActiveMode(m)}
-            isKalmanEnabled={isKalmanEnabled}
-            onToggleKalman={() => setIsKalmanEnabled(!isKalmanEnabled)}
-            showOverlays={showOverlays}
-            onToggleOverlays={() => setShowOverlays(!showOverlays)}
-            isSafeZoneEnabled={isSafeZoneEnabled}
-            onToggleSafeZone={() => setIsSafeZoneEnabled(!isSafeZoneEnabled)}
-            activeStyle={activeStyle}
-            onSetStyle={(st) => {
-              setActiveStyle(st);
-              subtitleEngine.setStyle(st);
-            }}
-            fontSize={fontSize}
-            onSetFontSize={(sz) => setFontSize(sz)}
-            canvas9x16Ref={canvas9x16Ref}
-            source16x9Ref={source16x9Ref}
-            activeTargets={activeTargets}
-            currentSegment={subtitleEngine.getCurrentSegment(currentTime).segment}
-          />
-        )}
-
-        {activeTab === 'timeline' && (
-          <TimelineEditorTab
-            segments={segments}
-            onUpdateWord={handleUpdateWord}
-            onImportSRT={handleImportSRT}
-            onExportSRT={handleExportSRT}
-            onExportJSON={handleExportJSON}
-            onSeek={(t) => {
-              currentTimeRef.current = t;
-              setCurrentTime(t);
-              if (videoElemRef.current) videoElemRef.current.currentTime = t;
-            }}
-            currentTime={currentTime}
-          />
-        )}
-
-        {activeTab === 'thesis' && (
-          <ThesisEvaluationTab
-            telemetry={telemetry}
-            isKalmanActive={isKalmanEnabled}
-            onExportVideo={handleExportVideo}
-            isExporting={isExporting}
-            exportProgress={exportProgress}
-          />
-        )}
-      </main>
     </div>
   );
 }
