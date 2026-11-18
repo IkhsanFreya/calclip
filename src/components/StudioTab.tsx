@@ -391,7 +391,6 @@ export const StudioTab: React.FC<StudioTabProps> = ({
                   >
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                        <span>{conf.badgeEmoji}</span>
                         <span>{conf.name}</span>
                       </span>
                       {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-lime-400"></span>}

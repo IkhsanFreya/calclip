@@ -5,7 +5,6 @@ import {
   Download,
   Upload,
   Star,
-  Smile,
   RefreshCw,
   Wand2,
 } from 'lucide-react';
@@ -20,8 +19,7 @@ interface TimelineEditorTabProps {
     newText: string,
     newStart?: number,
     newEnd?: number,
-    isHighlighted?: boolean,
-    emoji?: string
+    isHighlighted?: boolean
   ) => void;
   onImportSRT: (content: string) => void;
   onExportSRT: () => void;
@@ -29,8 +27,6 @@ interface TimelineEditorTabProps {
   onSeek: (time: number) => void;
   currentTime: number;
 }
-
-const COMMON_EMOJIS = ['⚡', '🔥', '🚀', '💡', '🎬', '✨', '📌', '💬', '🤖', '🎯', '❤️', '👏'];
 
 export const TimelineEditorTab: React.FC<TimelineEditorTabProps> = ({
   segments,
@@ -217,7 +213,6 @@ export const TimelineEditorTab: React.FC<TimelineEditorTabProps> = ({
                             : 'bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700/60'
                         }`}
                       >
-                        {w.emoji && <span>{w.emoji}</span>}
                         <span>{w.text}</span>
                         {w.isHighlighted && <Star className="w-3 h-3 fill-amber-400 text-amber-400" />}
                         <span className="text-[10px] opacity-70 font-mono">
@@ -351,59 +346,6 @@ export const TimelineEditorTab: React.FC<TimelineEditorTabProps> = ({
                         }
                         className="w-full accent-cyan-400 h-1.5 bg-slate-800 rounded-lg cursor-pointer"
                       />
-                    </div>
-                  </div>
-
-                  {/* Contextual Emoji Picker */}
-                  <div className="space-y-2 pt-2 border-t border-slate-800">
-                    <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-                      <Smile className="w-3.5 h-3.5 text-lime-400" />
-                      Contextual Pop-Up Emoji
-                    </label>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <button
-                        onClick={() =>
-                          onUpdateWord(
-                            activeSegment.id,
-                            activeWord.id,
-                            activeWord.text,
-                            activeWord.start,
-                            activeWord.end,
-                            activeWord.isHighlighted,
-                            undefined
-                          )
-                        }
-                        className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-all ${
-                          !activeWord.emoji
-                            ? 'bg-slate-800 border-slate-600 text-white'
-                            : 'bg-slate-950 border-slate-800 text-slate-500'
-                        }`}
-                      >
-                        Hapus Emoji
-                      </button>
-                      {COMMON_EMOJIS.map((em) => (
-                        <button
-                          key={em}
-                          onClick={() =>
-                            onUpdateWord(
-                              activeSegment.id,
-                              activeWord.id,
-                              activeWord.text,
-                              activeWord.start,
-                              activeWord.end,
-                              activeWord.isHighlighted,
-                              em
-                            )
-                          }
-                          className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm border transition-all ${
-                            activeWord.emoji === em
-                              ? 'bg-lime-400/20 border-lime-400 scale-110'
-                              : 'bg-slate-950 border-slate-800 hover:border-slate-700'
-                          }`}
-                        >
-                          {em}
-                        </button>
-                      ))}
                     </div>
                   </div>
                 </div>

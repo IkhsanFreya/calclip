@@ -101,6 +101,8 @@ export function App() {
   const lastFrameTimeRef = useRef<number>(performance.now());
   const frameCountRef = useRef<number>(0);
   const fpsTimerRef = useRef<number>(performance.now());
+  const currentTimeRef = useRef<number>(0);
+  const lastUiUpdateRef = useRef<number>(0);
 
   // Initialize Offscreen Canvas & Viral Moments
   useEffect(() => {
@@ -143,6 +145,7 @@ export function App() {
         isDemo: false,
         url,
       });
+      currentTimeRef.current = 0;
       setCurrentTime(0);
       setIsPlaying(true);
     };
@@ -186,11 +189,13 @@ export function App() {
       aspectRatio: 16 / 9,
       isDemo: true,
     });
+    currentTimeRef.current = 0;
     setCurrentTime(0);
     setIsPlaying(true);
   };
 
   const handleSelectMoment = (moment: ViralMoment) => {
+    currentTimeRef.current = moment.startTime;
     setCurrentTime(moment.startTime);
     setActiveMode(moment.recommendedMode);
     setActiveTab('studio');
@@ -204,10 +209,9 @@ export function App() {
     newText: string,
     newStart?: number,
     newEnd?: number,
-    isHighlighted?: boolean,
-    emoji?: string
+    isHighlighted?: boolean
   ) => {
-    subtitleEngine.updateWord(segmentId, wordId, newText, newStart, newEnd, isHighlighted, emoji);
+    subtitleEngine.updateWord(segmentId, wordId, newText, newStart, newEnd, isHighlighted);
     setSegments([...subtitleEngine.getSegments()]);
   };
 
@@ -258,18 +262,16 @@ export function App() {
       }
 
       if (isPlaying) {
-        setCurrentTime((prevTime) => {
-          let nextTime = prevTime + dt;
-          if (nextTime >= duration) {
-            nextTime = 0; // Loop seamlessly
-          }
-          if (videoElemRef.current && Math.abs(videoElemRef.current.currentTime - nextTime) > 0.3) {
-            videoElemRef.current.currentTime = nextTime;
-            if (videoElemRef.current.paused) videoElemRef.current.play().catch(() => {});
-          }
-          return nextTime;
-        });
+        currentTimeRef.current += dt;
+        if (currentTimeRef.current >= duration) {
+          currentTimeRef.current = 0;
+        }
+        if (videoElemRef.current && Math.abs(videoElemRef.current.currentTime - currentTimeRef.current) > 0.3) {
+          videoElemRef.current.currentTime = currentTimeRef.current;
+          if (videoElemRef.current.paused) videoElemRef.current.play().catch(() => {});
+        }
       }
+      const curTime = currentTimeRef.current;
 
       // 1. Render Source 16:9 Frame
       const offscreen = offscreenSourceCanvasRef.current;
@@ -284,7 +286,7 @@ export function App() {
               offCtx,
               offscreen.width,
               offscreen.height,
-              currentTime
+              curTime
             );
             rawDetections = frameData.detections;
           } else if (videoElemRef.current && videoElemRef.current.readyState >= 2) {
@@ -304,7 +306,7 @@ export function App() {
 
           // 2. Audio band analysis
           let audioFeatures = {
-            voiceBandEnergy: 0.35 + Math.sin(currentTime * 12) * 0.25,
+            voiceBandEnergy: 0.35 + Math.sin(curTime * 12) * 0.25,
             subBassEnergy: 0.08,
             highFreqEnergy: 0.12,
             spectralCentroid: 1250,
@@ -318,27 +320,25 @@ export function App() {
           }
 
           // 3. Multi-Target ByteTrack update
-          const tracked = multiTargetTracker.update(rawDetections, currentTime);
+          const tracked = multiTargetTracker.update(rawDetections, curTime);
 
           // Evaluate Active Speaker Detector (Light-ASD)
           for (const target of tracked) {
             if (target.category === 'speaker_face') {
-              const asdRes = activeSpeakerDetector.evaluateSpeaker(target, audioFeatures, currentTime);
+              const asdRes = activeSpeakerDetector.evaluateSpeaker(target, audioFeatures, curTime);
               target.asdScore = asdRes.asdScore;
               target.isSpeaking = asdRes.isSpeaking;
               target.lipMotionVariance = asdRes.lipVariance;
             }
           }
-          setActiveTargets(tracked);
 
           // 4. Kalman Reframing & Auto Split-Screen Decision
           const computedReframing = cameraReframer.computeReframing(
             tracked,
-            currentTime,
+            curTime,
             activeMode,
             isKalmanEnabled
           );
-          setReframingState(computedReframing);
 
           // Update live telemetry metrics
           const liveTel = telemetryAudit.getLiveTelemetry(
@@ -347,7 +347,15 @@ export function App() {
             computedReframing.cameraJitterKalman,
             isKalmanEnabled
           );
-          setTelemetry(liveTel);
+
+          // Throttled UI state updates (10Hz) to keep React thread 100% smooth & responsive
+          if (now - lastUiUpdateRef.current >= 100) {
+            setCurrentTime(curTime);
+            setActiveTargets(tracked);
+            setReframingState(computedReframing);
+            setTelemetry(liveTel);
+            lastUiUpdateRef.current = now;
+          }
 
           // 5. Draw 9:16 Vertical Preview Canvas (540x960)
           const c9x16 = canvas9x16Ref.current;
@@ -430,7 +438,7 @@ export function App() {
 
               // Render Procedural Kinetic Subtitles (Module D)
               const safeOffset = isSafeZoneEnabled ? computedReframing.safeZoneOffset : 1;
-              subtitleEngine.renderToCanvas(ctx9, W, H, currentTime, safeOffset);
+              subtitleEngine.renderToCanvas(ctx9, W, H, curTime, safeOffset);
             }
           }
 
@@ -488,7 +496,7 @@ export function App() {
                   ctx16.fillStyle = boxColor;
                   ctx16.font = 'bold 11px Inter, sans-serif';
                   ctx16.fillText(
-                    `ID#${t.id} ${t.category === 'speaker_face' ? (t.isSpeaking ? '🗣️ TALK' : 'SILENT') : 'OBJ'}`,
+                    `ID#${t.id} ${t.category === 'speaker_face' ? (t.isSpeaking ? 'ACTIVE' : 'SILENT') : 'OBJ'}`,
                     bx + 6,
                     by - 8
                   );
@@ -506,14 +514,12 @@ export function App() {
     return () => cancelAnimationFrame(animId);
   }, [
     isPlaying,
-    currentTime,
     duration,
     currentSource,
     activeMode,
     isKalmanEnabled,
     showOverlays,
     isSafeZoneEnabled,
-    fps,
   ]);
 
   // Hardware-Accelerated Video Exporter (WebM via Canvas MediaRecorder)
@@ -596,8 +602,16 @@ export function App() {
             duration={duration}
             isPlaying={isPlaying}
             onTogglePlay={() => setIsPlaying(!isPlaying)}
-            onSeek={(t) => setCurrentTime(t)}
-            onReset={() => setCurrentTime(0)}
+            onSeek={(t) => {
+              currentTimeRef.current = t;
+              setCurrentTime(t);
+              if (videoElemRef.current) videoElemRef.current.currentTime = t;
+            }}
+            onReset={() => {
+              currentTimeRef.current = 0;
+              setCurrentTime(0);
+              if (videoElemRef.current) videoElemRef.current.currentTime = 0;
+            }}
             reframingState={reframingState}
             activeMode={activeMode}
             onSetMode={(m) => setActiveMode(m)}
@@ -628,7 +642,11 @@ export function App() {
             onImportSRT={handleImportSRT}
             onExportSRT={handleExportSRT}
             onExportJSON={handleExportJSON}
-            onSeek={(t) => setCurrentTime(t)}
+            onSeek={(t) => {
+              currentTimeRef.current = t;
+              setCurrentTime(t);
+              if (videoElemRef.current) videoElemRef.current.currentTime = t;
+            }}
             currentTime={currentTime}
           />
         )}

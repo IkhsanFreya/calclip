@@ -68,7 +68,6 @@ export interface SubtitleWord {
   start: number; // in seconds
   end: number; // in seconds
   isHighlighted?: boolean;
-  emoji?: string;
   confidence: number;
 }
 
@@ -137,5 +136,4 @@ export interface SubtitleStyleConfig {
   hasShadow: boolean;
   hasBackground: boolean;
   uppercase: boolean;
-  badgeEmoji?: string;
 }

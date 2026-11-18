@@ -9,6 +9,7 @@
  */
 
 import { RawDetection } from './multiTargetTracker';
+import { safeRoundRect } from './subtitleEngine';
 
 export interface DemoSceneFrameData {
   timestamp: number;
@@ -179,7 +180,7 @@ export class DemoSceneSimulator {
     ctx.strokeStyle = frameState.isPointingAtSlide ? '#38bdf8' : '#334155';
     ctx.lineWidth = frameState.isPointingAtSlide ? 3 : 1.5;
     ctx.beginPath();
-    ctx.roundRect(sx, sy, sw, sh, 12);
+    safeRoundRect(ctx, sx, sy, sw, sh, 12);
     ctx.fill();
     ctx.stroke();
 
@@ -189,12 +190,12 @@ export class DemoSceneSimulator {
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 13px Inter, sans-serif';
     ctx.textAlign = 'left';
-    ctx.fillText('⚡ KLIPFLOW AI — PIPELINE ARCHITECTURE', sx + 12, sy + 21);
+    ctx.fillText('KLIPFLOW AI — PIPELINE ARCHITECTURE', sx + 12, sy + 21);
 
     // Slide diagram content
     const box1Y = sy + 48;
     ctx.fillStyle = '#1e293b';
-    ctx.roundRect(sx + 16, box1Y, sw - 32, 42, 6);
+    safeRoundRect(ctx, sx + 16, box1Y, sw - 32, 42, 6);
     ctx.fill();
     ctx.fillStyle = '#a3e635';
     ctx.font = 'bold 12px "JetBrains Mono", monospace';
@@ -202,14 +203,14 @@ export class DemoSceneSimulator {
 
     const box2Y = sy + 98;
     ctx.fillStyle = '#1e293b';
-    ctx.roundRect(sx + 16, box2Y, sw - 32, 42, 6);
+    safeRoundRect(ctx, sx + 16, box2Y, sw - 32, 42, 6);
     ctx.fill();
     ctx.fillStyle = '#38bdf8';
     ctx.fillText('[Module B] YOLO11n + Two-Stage ByteTrack', sx + 26, box2Y + 26);
 
     const box3Y = sy + 148;
     ctx.fillStyle = '#1e293b';
-    ctx.roundRect(sx + 16, box3Y, sw - 32, 42, 6);
+    safeRoundRect(ctx, sx + 16, box3Y, sw - 32, 42, 6);
     ctx.fill();
     ctx.fillStyle = '#f43f5e';
     ctx.fillText('[Module C] 2D Kalman Filter Auto Split-Screen', sx + 26, box3Y + 26);
