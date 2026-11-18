@@ -191,6 +191,33 @@ export function App() {
     });
     currentTimeRef.current = 0;
     setCurrentTime(0);
+    setActiveTab('studio');
+    setIsPlaying(true);
+  };
+
+  const handleLoadYouTubeUrl = (url: string, title?: string) => {
+    if (uploadedVideoUrl) {
+      URL.revokeObjectURL(uploadedVideoUrl);
+      setUploadedVideoUrl(null);
+    }
+    if (videoElemRef.current) {
+      videoElemRef.current.pause();
+      videoElemRef.current = null;
+    }
+    const cleanTitle = title || 'Video YouTube (KlipFlow)';
+    setCurrentSource({
+      id: `yt-${Date.now()}`,
+      name: cleanTitle,
+      duration: 16.0,
+      width: 1920,
+      height: 1080,
+      aspectRatio: 16 / 9,
+      isDemo: true,
+      url,
+    });
+    currentTimeRef.current = 0;
+    setCurrentTime(0);
+    setActiveTab('studio');
     setIsPlaying(true);
   };
 
@@ -593,6 +620,7 @@ export function App() {
             onUploadFile={handleUploadFile}
             viralMoments={viralMoments}
             onSelectMoment={handleSelectMoment}
+            onLoadYouTubeUrl={handleLoadYouTubeUrl}
           />
         )}
 

@@ -8,6 +8,7 @@ interface ClipFinderTabProps {
   onUploadFile: (file: File) => void;
   viralMoments: ViralMoment[];
   onSelectMoment: (moment: ViralMoment) => void;
+  onLoadYouTubeUrl: (url: string, title?: string) => void;
 }
 
 export const ClipFinderTab: React.FC<ClipFinderTabProps> = ({
@@ -16,6 +17,7 @@ export const ClipFinderTab: React.FC<ClipFinderTabProps> = ({
   onUploadFile,
   viralMoments,
   onSelectMoment,
+  onLoadYouTubeUrl,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -32,20 +34,41 @@ export const ClipFinderTab: React.FC<ClipFinderTabProps> = ({
     }
   };
 
-  const handleCreateNewClip = () => {
+  const handleCreateNewClip = async () => {
+    const url = linkInput.trim() || 'https://www.youtube.com/watch?v=demo-klipflow-speech';
     setIsProcessingLink(true);
-    setProcessStep('Mengambil video...');
+    setProcessStep('Menghubungkan ke YouTube & mengambil metadata video...');
+
+    let videoTitle = 'Video YouTube (KlipFlow)';
+    try {
+      const res = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.title) videoTitle = data.title;
+      }
+    } catch {
+      const match = url.match(/(?:v=|\/)([0-9A-Za-z_-]{11})/);
+      if (match) videoTitle = `YouTube Clip (${match[1]})`;
+    }
+
     setTimeout(() => {
-      setProcessStep('Menulis subtitle dengan Whisper ASR...');
+      setProcessStep(`Menulis subtitle Whisper ASR: "${videoTitle.slice(0, 35)}..."`);
       setTimeout(() => {
-        setProcessStep('Mencari momen terbaik (Hook Scorer)...');
+        setProcessStep('Mencari momen terbaik & mengunci kamera (Hook Scorer)...');
         setTimeout(() => {
           setIsProcessingLink(false);
           setProcessStep(null);
-          onSelectDemo();
-        }, 800);
-      }, 800);
-    }, 700);
+          // Load YouTube URL into app state
+          onLoadYouTubeUrl(url, videoTitle);
+          // Automatically navigate to studio tab!
+          if (viralMoments.length > 0) {
+            onSelectMoment(viralMoments[0]);
+          } else {
+            onSelectDemo();
+          }
+        }, 700);
+      }, 700);
+    }, 600);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
