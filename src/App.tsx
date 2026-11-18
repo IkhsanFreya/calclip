@@ -30,6 +30,17 @@ export function App() {
   const [currentView, setCurrentView] = useState<MainView>('klip');
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState<boolean>(false);
 
+  // Real-time analysis status for sidebar widget
+  const [analysisInfo, setAnalysisInfo] = useState<{
+    isAnalyzing: boolean;
+    timeStr: string;
+    stepLabel: string;
+  }>({
+    isAnalyzing: false,
+    timeStr: '00:00',
+    stepLabel: '',
+  });
+
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [duration, setDuration] = useState<number>(16.0);
@@ -566,6 +577,12 @@ export function App() {
           currentView={currentView}
           onSelectView={(view) => setCurrentView(view)}
           onOpenSettings={() => setIsSettingsModalOpen(true)}
+          isAnalyzing={analysisInfo.isAnalyzing}
+          analysisTimeStr={analysisInfo.timeStr}
+          analysisStepLabel={analysisInfo.stepLabel}
+          onCancelAnalysis={() => {
+            setAnalysisInfo({ isAnalyzing: false, timeStr: '00:00', stepLabel: '' });
+          }}
         />
 
         {/* Right Content Area */}
@@ -586,6 +603,9 @@ export function App() {
               onSelectMoment={handleSelectMoment}
               onUploadFile={handleUploadFile}
               onLoadYouTubeUrl={handleLoadYouTubeUrl}
+              onAnalysisStateChange={(isAnalyzing, timeStr, stepLabel) => {
+                setAnalysisInfo({ isAnalyzing, timeStr, stepLabel });
+              }}
               currentTime={currentTime}
               duration={duration}
               isPlaying={isPlaying}

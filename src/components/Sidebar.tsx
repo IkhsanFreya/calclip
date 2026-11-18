@@ -18,12 +18,20 @@ interface SidebarProps {
   currentView: MainView;
   onSelectView: (view: MainView) => void;
   onOpenSettings: () => void;
+  isAnalyzing?: boolean;
+  analysisTimeStr?: string;
+  analysisStepLabel?: string;
+  onCancelAnalysis?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
   currentView,
   onSelectView,
   onOpenSettings,
+  isAnalyzing = false,
+  analysisTimeStr = '00:00',
+  analysisStepLabel = '',
+  onCancelAnalysis,
 }) => {
   const [showComponentStatus, setShowComponentStatus] = React.useState(true);
 
@@ -112,23 +120,30 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
         </div>
 
-        {/* Component status widget */}
+        {/* Component / Analysis status widget */}
         {showComponentStatus && (
           <div className="bg-[#0f172a] border border-slate-800 rounded-xl p-3 space-y-2 mt-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Loader2 className="w-3.5 h-3.5 text-cyan-400 animate-spin" />
-                <span className="text-xs font-medium text-slate-200">Memasang komponen</span>
+                <span className="text-xs font-medium text-slate-200">
+                  {isAnalyzing ? 'Menganalisis video' : 'Memasang komponen'}
+                </span>
               </div>
               <button
-                onClick={() => setShowComponentStatus(false)}
+                onClick={() => {
+                  if (isAnalyzing && onCancelAnalysis) onCancelAnalysis();
+                  else setShowComponentStatus(false);
+                }}
                 className="text-slate-500 hover:text-slate-300"
               >
                 <X className="w-3 h-3" />
               </button>
             </div>
-            <div className="text-[11px] font-mono text-slate-400">
-              02:15 • siap digunakan
+            <div className="text-[11px] font-mono text-slate-400 truncate">
+              {isAnalyzing
+                ? `${analysisTimeStr} • ${analysisStepLabel}`
+                : '02:15 • siap digunakan'}
             </div>
             <div className="w-full bg-slate-800 h-1 rounded-full overflow-hidden">
               <div className="bg-cyan-400 h-full w-4/5 rounded-full" />

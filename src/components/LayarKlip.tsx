@@ -30,6 +30,7 @@ interface LayarKlipProps {
   onSelectMoment: (moment: ViralMoment) => void;
   onUploadFile: (file: File) => void;
   onLoadYouTubeUrl: (url: string, title?: string, clipCount?: number) => void;
+  onAnalysisStateChange?: (isAnalyzing: boolean, timeStr: string, stepLabel: string) => void;
 
   // Studio Player Props
   currentTime: number;
@@ -86,6 +87,7 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
   onSelectMoment,
   onUploadFile,
   onLoadYouTubeUrl,
+  onAnalysisStateChange,
 
   currentTime,
   duration,
@@ -127,9 +129,30 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
   telemetry,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [youtubeInput, setYoutubeInput] = useState('');
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [analysisStatus, setAnalysisStatus] = useState<string | null>(null);
+  const [youtubeInput, setYoutubeInput] = useState('https://youtu.be/4alNAxq96U4?si=BPdJeLm3WnJ_kA0X');
+
+  // 5-Step Pipeline State matching screenshot 8450cc9e.jpg
+  type StepStatus = 'Menunggu' | 'Berjalan...' | 'Beres';
+  interface PipelineStep {
+    id: number;
+    label: string;
+    status: StepStatus;
+  }
+
+  const [pipelineState, setPipelineState] = useState<'idle' | 'running' | 'completed'>('idle');
+  const [pipelineSteps, setPipelineSteps] = useState<PipelineStep[]>([
+    { id: 1, label: '01 • UNDUH', status: 'Menunggu' },
+    { id: 2, label: '02 • TRANSKRIP', status: 'Menunggu' },
+    { id: 3, label: '03 • PILIH MOMEN', status: 'Menunggu' },
+    { id: 4, label: '04 • RINGKAS', status: 'Menunggu' },
+    { id: 5, label: '05 • SELESAI', status: 'Menunggu' },
+  ]);
+  const [progressPercent, setProgressPercent] = useState<number>(0);
+  const [showLog, setShowLog] = useState<boolean>(true);
+  const [logLines, setLogLines] = useState<string[]>([]);
+  const elapsedTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const elapsedSecondsRef = useRef<number>(0);
+  const phaseTimeoutsRef = useRef<Array<ReturnType<typeof setTimeout>>>([]);
 
   // Settings State matching screenshot 01e31e93.jpg
   const [momentSelector, setMomentSelector] = useState<'lokal' | 'gemini' | 'ollama' | 'langganan'>('lokal');
@@ -143,11 +166,70 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
   // Active Sub-tab in studio view
   const [studioSubTab, setStudioSubTab] = useState<'preview' | 'subtitles' | 'evaluasi'>('preview');
 
+  const formatTime = (secs: number) => {
+    const m = Math.floor(secs / 60).toString().padStart(2, '0');
+    const s = (secs % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+  };
+
+  const clearAllTimers = () => {
+    if (elapsedTimerRef.current) clearInterval(elapsedTimerRef.current);
+    phaseTimeoutsRef.current.forEach((t) => clearTimeout(t));
+    phaseTimeoutsRef.current = [];
+  };
+
+  const handleCancelPipeline = () => {
+    clearAllTimers();
+    setPipelineState('idle');
+    setProgressPercent(0);
+    setPipelineSteps([
+      { id: 1, label: '01 • UNDUH', status: 'Menunggu' },
+      { id: 2, label: '02 • TRANSKRIP', status: 'Menunggu' },
+      { id: 3, label: '03 • PILIH MOMEN', status: 'Menunggu' },
+      { id: 4, label: '04 • RINGKAS', status: 'Menunggu' },
+      { id: 5, label: '05 • SELESAI', status: 'Menunggu' },
+    ]);
+    if (onAnalysisStateChange) {
+      onAnalysisStateChange(false, '00:00', '');
+    }
+  };
+
   // Trigger analysis for YouTube or video
   const handleCariMomen = async () => {
-    const rawUrl = youtubeInput.trim() || 'https://www.youtube.com/watch?v=dQw4w9WgXcQ';
-    setIsAnalyzing(true);
-    setAnalysisStatus('Menghubungkan ke YouTube & mengambil metadata video...');
+    clearAllTimers();
+    const rawUrl = youtubeInput.trim() || 'https://youtu.be/4alNAxq96U4?si=BPdJeLm3WnJ_kA0X';
+    setPipelineState('running');
+    setProgressPercent(12);
+    elapsedSecondsRef.current = 0;
+
+    setPipelineSteps([
+      { id: 1, label: '01 • UNDUH', status: 'Berjalan...' },
+      { id: 2, label: '02 • TRANSKRIP', status: 'Menunggu' },
+      { id: 3, label: '03 • PILIH MOMEN', status: 'Menunggu' },
+      { id: 4, label: '04 • RINGKAS', status: 'Menunggu' },
+      { id: 5, label: '05 • SELESAI', status: 'Menunggu' },
+    ]);
+
+    setLogLines([
+      `[00:00] Memeriksa tautan YouTube: ${rawUrl}`,
+      `[00:01] Mengambil manifest video & parameter audio...`,
+    ]);
+
+    if (onAnalysisStateChange) {
+      onAnalysisStateChange(true, '00:01', 'Mengunduh...');
+    }
+
+    elapsedTimerRef.current = setInterval(() => {
+      elapsedSecondsRef.current += 1;
+      const timeStr = formatTime(elapsedSecondsRef.current);
+      if (onAnalysisStateChange) {
+        let label = 'Mengunduh...';
+        if (elapsedSecondsRef.current > 3 && elapsedSecondsRef.current <= 7) label = 'Transkrip...';
+        else if (elapsedSecondsRef.current > 7 && elapsedSecondsRef.current <= 10) label = 'Pilih momen...';
+        else if (elapsedSecondsRef.current > 10) label = 'Ringkas...';
+        onAnalysisStateChange(true, timeStr, label);
+      }
+    }, 1000);
 
     let videoTitle = 'Video Presentasi & Wawancara KlipFlow';
     try {
@@ -158,33 +240,99 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
       }
     } catch {
       const match = rawUrl.match(/(?:v=|\/)([0-9A-Za-z_-]{11})/);
-      if (match) videoTitle = `YouTube Clip (${match[1]})`;
+      if (match) videoTitle = `YouTube (${match[1]})`;
     }
 
-    setTimeout(() => {
-      setAnalysisStatus(`Menjalankan Whisper ASR & normalisasi teks santai: "${videoTitle.slice(0, 32)}..."`);
-      setTimeout(() => {
-        setAnalysisStatus('Mendeteksi energi suara, lip sync, dan heatmap pemutaran (Hook Scorer)...');
-        setTimeout(() => {
-          setIsAnalyzing(false);
-          setAnalysisStatus(null);
-          // Pass URL to app state and create clips
-          onLoadYouTubeUrl(rawUrl, videoTitle, clipCount);
-        }, 600);
-      }, 600);
-    }, 600);
+    // Step 1 -> 2 (UNDUH finished at 3s)
+    const t1 = setTimeout(() => {
+      setPipelineSteps([
+        { id: 1, label: '01 • UNDUH', status: 'Beres' },
+        { id: 2, label: '02 • TRANSKRIP', status: 'Berjalan...' },
+        { id: 3, label: '03 • PILIH MOMEN', status: 'Menunggu' },
+        { id: 4, label: '04 • RINGKAS', status: 'Menunggu' },
+        { id: 5, label: '05 • SELESAI', status: 'Menunggu' },
+      ]);
+      setProgressPercent(38);
+      setLogLines((prev) => [
+        ...prev,
+        `[00:03] Unduhan audio AAC 128kbps selesai (100% dari 14.8 MB).`,
+        `[00:03] Memuat model Whisper ASR (indonesian-casual-v3)...`,
+        `[00:04] Menjalankan Voice Activity Detection & telephony bandpass (300Hz-3400Hz)...`,
+      ]);
+
+      // Step 2 -> 3 (TRANSKRIP finished at 7s)
+      const t2 = setTimeout(() => {
+        setPipelineSteps([
+          { id: 1, label: '01 • UNDUH', status: 'Beres' },
+          { id: 2, label: '02 • TRANSKRIP', status: 'Beres' },
+          { id: 3, label: '03 • PILIH MOMEN', status: 'Berjalan...' },
+          { id: 4, label: '04 • RINGKAS', status: 'Menunggu' },
+          { id: 5, label: '05 • SELESAI', status: 'Menunggu' },
+        ]);
+        setProgressPercent(68);
+        setLogLines((prev) => [
+          ...prev,
+          `[00:07] Berhasil mengekstrak 16 segmen kata dengan Dynamic Time Warping (DTW).`,
+          `[00:07] Normalisasi kosakata gaul ("nggak", "udah", "gimana", "gue")...`,
+          `[00:08] Menghitung Informational Energy & YouTube Heatmap peak density...`,
+        ]);
+
+        // Step 3 -> 4 (PILIH MOMEN finished at 10s)
+        const t3 = setTimeout(() => {
+          setPipelineSteps([
+            { id: 1, label: '01 • UNDUH', status: 'Beres' },
+            { id: 2, label: '02 • TRANSKRIP', status: 'Beres' },
+            { id: 3, label: '03 • PILIH MOMEN', status: 'Beres' },
+            { id: 4, label: '04 • RINGKAS', status: 'Berjalan...' },
+            { id: 5, label: '05 • SELESAI', status: 'Menunggu' },
+          ]);
+          setProgressPercent(90);
+          setLogLines((prev) => [
+            ...prev,
+            `[00:10] Ditemukan 5 momen hook viral terbaik (Hook Score rata-rata 92.4).`,
+            `[00:10] Menghitung collision safe-zone placement untuk anchor subtitle...`,
+            `[00:11] Menginisialisasi Kalman Filter 2D untuk framing kamera 9:16 vertikal...`,
+          ]);
+
+          // Step 4 -> 5 (SELESAI at 12s)
+          const t4 = setTimeout(() => {
+            clearAllTimers();
+            setPipelineSteps([
+              { id: 1, label: '01 • UNDUH', status: 'Beres' },
+              { id: 2, label: '02 • TRANSKRIP', status: 'Beres' },
+              { id: 3, label: '03 • PILIH MOMEN', status: 'Beres' },
+              { id: 4, label: '04 • RINGKAS', status: 'Beres' },
+              { id: 5, label: '05 • SELESAI', status: 'Beres' },
+            ]);
+            setProgressPercent(100);
+            setPipelineState('completed');
+            setLogLines((prev) => [
+              ...prev,
+              `[00:12] Selesai! 5 klip vertikal 9:16 siap ditinjau dan diedit di Studio.`,
+            ]);
+
+            if (onAnalysisStateChange) {
+              onAnalysisStateChange(false, formatTime(elapsedSecondsRef.current), 'Selesai');
+            }
+
+            // Immediately load moments and activate studio!
+            onLoadYouTubeUrl(rawUrl, videoTitle, clipCount);
+          }, 2000);
+          phaseTimeoutsRef.current.push(t4);
+        }, 3000);
+        phaseTimeoutsRef.current.push(t3);
+      }, 4000);
+      phaseTimeoutsRef.current.push(t2);
+    }, 3000);
+    phaseTimeoutsRef.current.push(t1);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      setIsAnalyzing(true);
-      setAnalysisStatus(`Membaca file video lokal: ${file.name}...`);
-      setTimeout(() => {
-        onUploadFile(file);
-        setIsAnalyzing(false);
-        setAnalysisStatus(null);
-      }, 500);
+      setYoutubeInput(file.name);
+      onUploadFile(file);
+      handleCariMomen();
     }
   };
 
@@ -261,10 +409,10 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
 
             <button
               onClick={handleCariMomen}
-              disabled={isAnalyzing}
+              disabled={pipelineState === 'running'}
               className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl bg-[#06b6d4] hover:bg-[#22d3ee] text-slate-950 font-bold text-xs transition-colors flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/20 disabled:opacity-50"
             >
-              {isAnalyzing ? (
+              {pipelineState === 'running' ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
                   <span>Menganalisis...</span>
@@ -275,14 +423,6 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
             </button>
           </div>
         </div>
-
-        {/* Analysis Status Banner */}
-        {analysisStatus && (
-          <div className="bg-cyan-950/30 border border-cyan-500/40 rounded-xl p-3 flex items-center gap-3 text-xs text-cyan-300 font-mono">
-            <Loader2 className="w-4 h-4 animate-spin text-cyan-400 shrink-0" />
-            <span>{analysisStatus}</span>
-          </div>
-        )}
       </div>
 
       {/* Two Configuration Columns matching 01e31e93.jpg */}
@@ -467,6 +607,89 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
           </div>
         </div>
       </div>
+
+      {/* 5-STEP ANALYSIS PIPELINE CONTAINER matching screenshot 8450cc9e.jpg */}
+      {(pipelineState === 'running' || pipelineState === 'completed') && (
+        <div className="bg-[#0f172a]/80 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-xl">
+          {/* 5 Stepper Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+            {pipelineSteps.map((st) => {
+              const isRunning = st.status === 'Berjalan...';
+              const isDone = st.status === 'Beres';
+              return (
+                <div
+                  key={st.id}
+                  className={`rounded-xl p-3.5 space-y-1 text-left transition-all ${
+                    isRunning
+                      ? 'bg-cyan-950/20 border border-cyan-400 ring-1 ring-cyan-400/20 shadow-sm'
+                      : 'bg-[#0b0f19] border border-slate-800'
+                  }`}
+                >
+                  <div
+                    className={`font-mono text-[11px] ${
+                      isRunning
+                        ? 'text-cyan-400 font-bold'
+                        : isDone
+                        ? 'text-slate-400'
+                        : 'text-slate-500'
+                    }`}
+                  >
+                    {st.label}
+                  </div>
+                  <div
+                    className={`text-xs ${
+                      isDone
+                        ? 'text-emerald-400 font-bold'
+                        : isRunning
+                        ? 'text-slate-200'
+                        : 'text-slate-500'
+                    }`}
+                  >
+                    {st.status}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Progress Bar */}
+          <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+            <div
+              className="bg-cyan-400 h-full transition-all duration-300"
+              style={{ width: `${progressPercent}%` }}
+            />
+          </div>
+
+          {/* Controls: Lihat Log toggle & Batalkan button */}
+          <div className="flex items-center justify-between pt-1">
+            <button
+              onClick={() => setShowLog(!showLog)}
+              className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-white font-mono transition-colors"
+            >
+              <span>{showLog ? '▼' : '►'}</span>
+              <span>{showLog ? 'Sembunyikan log' : 'Lihat log'}</span>
+            </button>
+
+            <button
+              onClick={handleCancelPipeline}
+              className="px-4 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold border border-slate-700 transition-colors"
+            >
+              Batalkan
+            </button>
+          </div>
+
+          {/* Collapsible Log Terminal Box */}
+          {showLog && (
+            <div className="bg-[#080c14] border border-slate-800/90 rounded-xl p-3 font-mono text-[11px] text-slate-300 space-y-1 max-h-48 overflow-y-auto">
+              {logLines.map((line, idx) => (
+                <div key={idx} className="leading-tight text-slate-300">
+                  {line}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* DETECTED MOMENTS & LIVE STUDIO 9:16 PLAYER */}
       <div className="space-y-6 pt-4 border-t border-slate-800">
