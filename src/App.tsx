@@ -35,10 +35,12 @@ export function App() {
     isAnalyzing: boolean;
     timeStr: string;
     stepLabel: string;
+    statusTitle?: string;
   }>({
     isAnalyzing: false,
     timeStr: '00:00',
     stepLabel: '',
+    statusTitle: 'Menganalisis video',
   });
 
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
@@ -580,8 +582,14 @@ export function App() {
           isAnalyzing={analysisInfo.isAnalyzing}
           analysisTimeStr={analysisInfo.timeStr}
           analysisStepLabel={analysisInfo.stepLabel}
+          statusTitle={analysisInfo.statusTitle}
           onCancelAnalysis={() => {
-            setAnalysisInfo({ isAnalyzing: false, timeStr: '00:00', stepLabel: '' });
+            setAnalysisInfo({
+              isAnalyzing: false,
+              timeStr: '00:00',
+              stepLabel: '',
+              statusTitle: 'Menganalisis video',
+            });
           }}
         />
 
@@ -603,8 +611,13 @@ export function App() {
               onSelectMoment={handleSelectMoment}
               onUploadFile={handleUploadFile}
               onLoadYouTubeUrl={handleLoadYouTubeUrl}
-              onAnalysisStateChange={(isAnalyzing, timeStr, stepLabel) => {
-                setAnalysisInfo({ isAnalyzing, timeStr, stepLabel });
+              onAnalysisStateChange={(isAnalyzing, timeStr, stepLabel, statusTitle) => {
+                setAnalysisInfo({
+                  isAnalyzing,
+                  timeStr,
+                  stepLabel,
+                  statusTitle: statusTitle || (isAnalyzing ? 'Menganalisis video' : undefined),
+                });
               }}
               currentTime={currentTime}
               duration={duration}

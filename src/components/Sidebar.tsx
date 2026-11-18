@@ -21,6 +21,7 @@ interface SidebarProps {
   isAnalyzing?: boolean;
   analysisTimeStr?: string;
   analysisStepLabel?: string;
+  statusTitle?: string;
   onCancelAnalysis?: () => void;
 }
 
@@ -31,6 +32,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isAnalyzing = false,
   analysisTimeStr = '00:00',
   analysisStepLabel = '',
+  statusTitle,
   onCancelAnalysis,
 }) => {
   const [showComponentStatus, setShowComponentStatus] = React.useState(true);
@@ -127,7 +129,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <div className="flex items-center gap-2">
                 <Loader2 className="w-3.5 h-3.5 text-cyan-400 animate-spin" />
                 <span className="text-xs font-medium text-slate-200">
-                  {isAnalyzing ? 'Menganalisis video' : 'Memasang komponen'}
+                  {isAnalyzing ? (statusTitle || 'Menganalisis video') : 'Memasang komponen'}
                 </span>
               </div>
               <button
