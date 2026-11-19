@@ -9,19 +9,26 @@ export default defineConfig({
     host: true,
     proxy: {
       '/api': {
-        target: 'http://127.0.0.1:8787',
+        target: 'http://127.0.0.1:8799',
         changeOrigin: true,
+        headers: {
+          Origin: 'http://127.0.0.1:8799',
+        },
       },
       '/berkas': {
-        target: 'http://127.0.0.1:8787',
+        target: 'http://127.0.0.1:8799',
+        changeOrigin: true,
+      },
+      '/stream': {
+        target: 'http://127.0.0.1:8799',
         changeOrigin: true,
       },
       '/font': {
-        target: 'http://127.0.0.1:8787',
+        target: 'http://127.0.0.1:8799',
         changeOrigin: true,
       },
       '/aset': {
-        target: 'http://127.0.0.1:8787',
+        target: 'http://127.0.0.1:8799',
         changeOrigin: true,
       },
     },

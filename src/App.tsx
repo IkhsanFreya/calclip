@@ -4,6 +4,7 @@ import { LayarBeranda } from './components/LayarBeranda';
 import { LayarKlip } from './components/LayarKlip';
 import { LayarMotion } from './components/LayarMotion';
 import { LayarRiwayat } from './components/LayarRiwayat';
+import { LayarPengaturan } from './components/LayarPengaturan';
 import { ModalPengaturan } from './components/ModalPengaturan';
 
 import {
@@ -24,11 +25,16 @@ import { subtitleEngine } from './engine/subtitleEngine';
 import { hookScorer } from './engine/hookScorer';
 import { telemetryAudit } from './engine/telemetryAudit';
 import { demoSceneSimulator } from './engine/demoSceneSimulator';
-import { Minus, Square, X, Tv } from 'lucide-react';
+import { Minus, Square, X } from 'lucide-react';
 
 export function App() {
-  const [currentView, setCurrentView] = useState<MainView>('klip');
+  const [currentView, setCurrentView] = useState<MainView>('beranda');
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState<boolean>(false);
+  const [activeKlipProject, setActiveKlipProject] = useState<string | null>(null);
+  const [resetNonce, setResetNonce] = useState<number>(0);
+  const handleClearActiveProject = useCallback(() => {
+    setActiveKlipProject(null);
+  }, []);
 
   // Real-time analysis status for sidebar widget
   const [analysisInfo, setAnalysisInfo] = useState<{
@@ -42,6 +48,77 @@ export function App() {
     stepLabel: '',
     statusTitle: 'Menganalisis video',
   });
+
+  const handleAnalysisStateChange = useCallback(
+    (isAnalyzing: boolean, timeStr: string, stepLabel: string, statusTitle?: string) => {
+      setAnalysisInfo((prev) => {
+        if (
+          prev.isAnalyzing === isAnalyzing &&
+          prev.timeStr === timeStr &&
+          prev.stepLabel === stepLabel &&
+          prev.statusTitle === (statusTitle || (isAnalyzing ? 'Menganalisis video' : undefined))
+        ) {
+          return prev;
+        }
+        return {
+          isAnalyzing,
+          timeStr,
+          stepLabel,
+          statusTitle: statusTitle || (isAnalyzing ? 'Menganalisis video' : undefined),
+        };
+      });
+    },
+    []
+  );
+
+  // Real-time Studio Maliki global task monitor (matching official index.html cekKerja)
+  useEffect(() => {
+    let mulai = 0;
+    let idLalu: number | null = null;
+    const formatMmss = (d: number) =>
+      `${String(Math.floor(d / 60)).padStart(2, '0')}:${String(Math.floor(d % 60)).padStart(2, '0')}`;
+
+    const checkJob = async () => {
+      try {
+        const res = await fetch('/api/status');
+        if (!res.ok) return;
+        const s = await res.json();
+        const jalan = s.status === 'jalan';
+        if (!jalan) {
+          idLalu = null;
+          return;
+        }
+
+        if (s.id !== idLalu) {
+          idLalu = s.id;
+          mulai = Date.now();
+        }
+
+        const JENIS: Record<string, string> = {
+          klip: 'Menganalisis video',
+          render: 'Merender klip',
+          motion: 'Membuat video motion',
+          pasang: 'Memasang komponen',
+          suara: 'Menyiapkan suara',
+        };
+        const statusTitle = JENIS[s.jenis] || 'Bekerja';
+        const akhir = (s.log || []).filter((l: string) => l.startsWith('•')).pop() || '';
+        const stepLabel = akhir.replace(/^•\s*/, '').slice(0, 45) || 'Memproses...';
+        const timeStr = formatMmss((Date.now() - mulai) / 1000);
+
+        setAnalysisInfo({
+          isAnalyzing: true,
+          timeStr,
+          stepLabel,
+          statusTitle,
+        });
+      } catch {}
+    };
+
+    const interval = setInterval(checkJob, 1000);
+    checkJob();
+    return () => clearInterval(interval);
+  }, []);
 
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
   const [currentTime, setCurrentTime] = useState<number>(0);
@@ -121,6 +198,56 @@ export function App() {
   const fpsTimerRef = useRef<number>(performance.now());
   const currentTimeRef = useRef<number>(0);
   const lastUiUpdateRef = useRef<number>(0);
+
+  // Theme Management (Otomatis / Gelap / Terang)
+  const [tema, setTema] = useState<'otomatis' | 'gelap' | 'terang'>(() => {
+    return (localStorage.getItem('calclip-theme') as any) || 'otomatis';
+  });
+
+  useEffect(() => {
+    const terapkan = (t: 'otomatis' | 'gelap' | 'terang') => {
+      localStorage.setItem('calclip-theme', t);
+      const root = document.documentElement;
+      const body = document.body;
+      let isDark = true;
+      if (t === 'terang') {
+        isDark = false;
+      } else if (t === 'gelap') {
+        isDark = true;
+      } else {
+        isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      }
+
+      if (isDark) {
+        root.classList.add('dark');
+        root.classList.remove('light');
+        body.classList.add('dark');
+        body.classList.remove('light');
+      } else {
+        root.classList.remove('dark');
+        root.classList.add('light');
+        body.classList.remove('dark');
+        body.classList.add('light');
+      }
+    };
+
+    terapkan(tema);
+
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const listener = () => {
+      if (tema === 'otomatis') terapkan('otomatis');
+    };
+    mq.addEventListener('change', listener);
+    return () => mq.removeEventListener('change', listener);
+  }, [tema]);
+
+  useEffect(() => {
+    const handler = (e: any) => {
+      if (e.detail) setTema(e.detail);
+    };
+    window.addEventListener('ganti-tema', handler);
+    return () => window.removeEventListener('ganti-tema', handler);
+  }, []);
 
   // Initialize Offscreen Canvas & Viral Moments
   useEffect(() => {
@@ -257,7 +384,7 @@ export function App() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `StudioMaliki_Subtitles_${Date.now()}.srt`;
+    a.download = `CalClip_Subtitles_${Date.now()}.srt`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -521,7 +648,7 @@ export function App() {
         const url = URL.createObjectURL(fullBlob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `StudioMaliki_9x16_Output_${Date.now()}.webm`;
+        a.download = `CalClip_9x16_Output_${Date.now()}.webm`;
         a.click();
         URL.revokeObjectURL(url);
         setIsExporting(false);
@@ -548,14 +675,14 @@ export function App() {
   }, [isExporting]);
 
   return (
-    <div className="min-h-screen bg-[#080c14] text-slate-100 flex flex-col font-sans select-none antialiased">
-      {/* Windows App Title Bar matching Studio-Maliki-Windows.exe */}
-      <div className="h-8 bg-[#0b0f19] border-b border-slate-800/80 px-3 flex items-center justify-between text-xs text-slate-400 select-none">
+    <div className="h-screen max-h-screen overflow-hidden bg-[#080c14] text-slate-100 flex flex-col font-sans select-none antialiased">
+      {/* Windows App Title Bar */}
+      <div className="h-8 shrink-0 bg-[#0b0f19] border-b border-slate-800/80 px-3 flex items-center justify-between text-xs text-slate-400 select-none">
         <div className="flex items-center gap-2">
-          <div className="w-3.5 h-3.5 rounded bg-blue-600 flex items-center justify-center text-white">
-            <Tv className="w-2.5 h-2.5 fill-white" />
-          </div>
-          <span className="font-semibold text-slate-200 text-[11px]">Studio Maliki</span>
+          <img src="/logo.png" alt="CalClip.IN" className="dark-logo h-4 w-auto object-contain" />
+          <img src="/logo-light.png" alt="CalClip.IN" className="light-logo h-4 w-auto object-contain" />
+          <span className="font-bold text-slate-100 text-[11px] tracking-tight brand-text">CalClip.IN</span>
+          <span className="text-[9px] font-mono font-semibold px-1.5 py-0.2 bg-cyan-950/80 text-cyan-300 border border-cyan-800/40 rounded">v2.0</span>
         </div>
 
         {/* Window controls */}
@@ -573,7 +700,7 @@ export function App() {
       </div>
 
       {/* Main App Layout: Left Sidebar + Right Content */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 min-h-0 flex overflow-hidden">
         {/* Left Sidebar */}
         <Sidebar
           currentView={currentView}
@@ -583,21 +710,35 @@ export function App() {
           analysisTimeStr={analysisInfo.timeStr}
           analysisStepLabel={analysisInfo.stepLabel}
           statusTitle={analysisInfo.statusTitle}
-          onCancelAnalysis={() => {
+          tema={tema}
+          onGantiTema={(t) => setTema(t)}
+          onCancelAnalysis={async () => {
+            try {
+              await fetch('/api/batal', { method: 'POST' });
+            } catch {}
             setAnalysisInfo({
               isAnalyzing: false,
               timeStr: '00:00',
               stepLabel: '',
               statusTitle: 'Menganalisis video',
             });
+            window.dispatchEvent(new CustomEvent('reset-proyek-klip'));
           }}
         />
 
         {/* Right Content Area */}
-        <main className="flex-1 flex flex-col overflow-hidden">
+        <main className="flex-1 min-h-0 flex flex-col overflow-hidden">
           {currentView === 'beranda' && (
             <LayarBeranda
-              onBukaKlip={() => setCurrentView('klip')}
+              onBukaKlip={(nama) => {
+                if (nama) {
+                  setActiveKlipProject(nama);
+                } else {
+                  setActiveKlipProject(null);
+                  setResetNonce((n) => n + 1);
+                }
+                setCurrentView('klip');
+              }}
               onBukaMotion={() => setCurrentView('motion')}
               totalKlipCount={viralMoments.length}
             />
@@ -605,20 +746,16 @@ export function App() {
 
           {currentView === 'klip' && (
             <LayarKlip
+              initialProjectNama={activeKlipProject}
+              resetNonce={resetNonce}
+              onClearActiveProject={handleClearActiveProject}
               currentSource={currentSource}
               viralMoments={viralMoments}
               selectedMoment={selectedMoment}
               onSelectMoment={handleSelectMoment}
               onUploadFile={handleUploadFile}
               onLoadYouTubeUrl={handleLoadYouTubeUrl}
-              onAnalysisStateChange={(isAnalyzing, timeStr, stepLabel, statusTitle) => {
-                setAnalysisInfo({
-                  isAnalyzing,
-                  timeStr,
-                  stepLabel,
-                  statusTitle: statusTitle || (isAnalyzing ? 'Menganalisis video' : undefined),
-                });
-              }}
+              onAnalysisStateChange={handleAnalysisStateChange}
               currentTime={currentTime}
               duration={duration}
               isPlaying={isPlaying}
@@ -667,10 +804,17 @@ export function App() {
 
           {currentView === 'riwayat' && (
             <LayarRiwayat
-              viralMoments={viralMoments}
-              onSelectMoment={handleSelectMoment}
+              onBukaProyek={(nama) => {
+                setActiveKlipProject(nama);
+                setCurrentView('klip');
+                window.dispatchEvent(new CustomEvent('buka-proyek-klip', { detail: nama }));
+              }}
               onNavigateKlip={() => setCurrentView('klip')}
             />
+          )}
+
+          {currentView === 'pengaturan' && (
+            <LayarPengaturan onOpenWizard={() => setIsSettingsModalOpen(true)} />
           )}
         </main>
       </div>

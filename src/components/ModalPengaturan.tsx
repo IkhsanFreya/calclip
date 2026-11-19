@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Tv, Check, Loader2, X, ArrowRight } from 'lucide-react';
+import { Check, X, ArrowRight } from 'lucide-react';
 
 interface ModalPengaturanProps {
   isOpen: boolean;
@@ -17,6 +17,28 @@ export const ModalPengaturan: React.FC<ModalPengaturanProps> = ({
   const [step, setStep] = useState<number>(2); // Start at step 2 (komponen) as in user's screenshot
   const [aiChoice, setAiChoice] = useState<'lokal' | 'gemini' | 'ollama' | 'langganan'>('lokal');
   const [testResult, setTestResult] = useState<string | null>(null);
+  const [sistemStatus, setSistemStatus] = useState<{ klip: boolean; motion: boolean; voxcpm: boolean }>({
+    klip: true,
+    motion: true,
+    voxcpm: true,
+  });
+
+  React.useEffect(() => {
+    if (isOpen) {
+      fetch('/api/pengaturan')
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.sistem) {
+            setSistemStatus({
+              klip: Boolean(data.sistem.uv),
+              motion: Boolean(data.sistem.node),
+              voxcpm: Boolean(data.sistem.voxcpm),
+            });
+          }
+        })
+        .catch(() => {});
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -26,11 +48,10 @@ export const ModalPengaturan: React.FC<ModalPengaturanProps> = ({
         {/* Modal Header */}
         <div className="p-6 border-b border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-sm">
-              <Tv className="w-5 h-5 fill-white" />
-            </div>
+            <img src="/logo.png" alt="CalClip.IN" className="dark-logo h-8 w-auto object-contain shrink-0" />
+            <img src="/logo-light.png" alt="CalClip.IN" className="light-logo h-8 w-auto object-contain shrink-0" />
             <div>
-              <div className="font-bold text-sm text-white">Pemasangan Studio Maliki</div>
+              <div className="font-bold text-sm text-white brand-text">Pemasangan CalClip.IN</div>
               <div className="text-xs text-slate-400">Klip + Motion • gratis • jalan di laptopmu</div>
             </div>
           </div>
@@ -72,7 +93,7 @@ export const ModalPengaturan: React.FC<ModalPengaturanProps> = ({
             <div className="space-y-4">
               <h2 className="text-lg font-bold text-white">Persyaratan Sistem</h2>
               <p className="text-xs text-slate-400">
-                Studio Maliki dirancang untuk berjalan 100% lokal di laptopmu tanpa memerlukan langganan cloud berbayar.
+                CalClip.IN dirancang untuk berjalan 100% lokal di laptopmu tanpa memerlukan langganan cloud berbayar.
               </p>
               <div className="bg-[#0b0f19] border border-slate-800 rounded-xl p-4 space-y-3">
                 <div className="flex items-center justify-between text-xs">
@@ -120,7 +141,7 @@ export const ModalPengaturan: React.FC<ModalPengaturanProps> = ({
                   </p>
                 </div>
                 <div className="flex items-center gap-1 text-xs font-semibold text-emerald-400 shrink-0">
-                  <Check className="w-3.5 h-3.5" /> siap
+                  {sistemStatus.klip ? <><Check className="w-3.5 h-3.5" /> siap</> : <span className="text-amber-400">belum siap</span>}
                 </div>
               </div>
 
@@ -137,7 +158,7 @@ export const ModalPengaturan: React.FC<ModalPengaturanProps> = ({
                   </p>
                 </div>
                 <div className="flex items-center gap-1 text-xs font-semibold text-emerald-400 shrink-0">
-                  <Check className="w-3.5 h-3.5" /> siap
+                  {sistemStatus.motion ? <><Check className="w-3.5 h-3.5" /> siap</> : <span className="text-amber-400">belum siap</span>}
                 </div>
               </div>
 
@@ -153,12 +174,11 @@ export const ModalPengaturan: React.FC<ModalPengaturanProps> = ({
                     Suara narator natural bahasa Indonesia + clone suaramu (Apache-2.0). Disarankan RAM 16 GB. Bisa dilewati — suara bawaan tetap ada.
                   </p>
                   <div className="font-mono text-[11px] text-slate-400 pt-1">
-                    $ uv.exe run -q C:\Users\Asus ROG\AppData\Local\Programs\Studio Maliki\alat\suara\suara.py --cek
+                    $ uv.exe run -q suara.py --cek
                   </div>
                 </div>
-                <div className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-cyan-900/50 text-cyan-300 border border-cyan-500/30 shrink-0">
-                  <Loader2 className="w-3.5 h-3.5 animate-spin text-cyan-400" />
-                  <span>Memasang...</span>
+                <div className="flex items-center gap-1 text-xs font-semibold text-emerald-400 shrink-0">
+                  {sistemStatus.voxcpm ? <><Check className="w-3.5 h-3.5" /> siap</> : <span className="text-amber-400">belum siap</span>}
                 </div>
               </div>
             </div>
