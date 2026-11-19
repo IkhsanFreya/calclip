@@ -50,9 +50,14 @@ namespace CalClipLauncher
                 psi.CreateNoWindow = true;
                 psi.WindowStyle = ProcessWindowStyle.Hidden;
 
-                // Set environment variabel untuk data mandiri
+                // Set environment variabel untuk data mandiri dan runtime terbundel
                 string calclipData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "CalClip");
                 psi.EnvironmentVariables["STUDIO_DATA"] = calclipData;
+
+                string pythonExe = Path.Combine(appDir, "python", "python.exe");
+                string uvExe = Path.Combine(appDir, "bin", "uv.exe");
+                if (File.Exists(pythonExe)) psi.EnvironmentVariables["STUDIO_PY"] = pythonExe;
+                if (File.Exists(uvExe)) psi.EnvironmentVariables["STUDIO_UV"] = uvExe;
 
                 Process.Start(psi);
             }
