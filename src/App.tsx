@@ -25,7 +25,6 @@ import { subtitleEngine } from './engine/subtitleEngine';
 import { hookScorer } from './engine/hookScorer';
 import { telemetryAudit } from './engine/telemetryAudit';
 import { demoSceneSimulator } from './engine/demoSceneSimulator';
-import { Minus, Square, X } from 'lucide-react';
 
 export function App() {
   const [currentView, setCurrentView] = useState<MainView>('beranda');
@@ -689,29 +688,6 @@ export function App() {
 
   return (
     <div className="h-screen max-h-screen overflow-hidden bg-[#080c14] text-slate-100 flex flex-col font-sans select-none antialiased">
-      {/* Windows App Title Bar */}
-      <div className="h-8 shrink-0 bg-[#0b0f19] border-b border-slate-800/80 px-3 flex items-center justify-between text-xs text-slate-400 select-none">
-        <div className="flex items-center gap-2">
-          <img src="/logo.png" alt="CalClip.IN" className="dark-logo h-4 w-auto object-contain" />
-          <img src="/logo-light.png" alt="CalClip.IN" className="light-logo h-4 w-auto object-contain" />
-          <span className="font-bold text-slate-100 text-[11px] tracking-tight brand-text">CalClip.IN</span>
-          <span className="text-[9px] font-mono font-semibold px-1.5 py-0.2 bg-cyan-950/80 text-cyan-300 border border-cyan-800/40 rounded">v2.0</span>
-        </div>
-
-        {/* Window controls */}
-        <div className="flex items-center gap-2">
-          <button className="w-6 h-6 flex items-center justify-center hover:bg-slate-800 rounded text-slate-400 hover:text-white transition-colors">
-            <Minus className="w-3 h-3" />
-          </button>
-          <button className="w-6 h-6 flex items-center justify-center hover:bg-slate-800 rounded text-slate-400 hover:text-white transition-colors">
-            <Square className="w-2.5 h-2.5" />
-          </button>
-          <button className="w-6 h-6 flex items-center justify-center hover:bg-rose-900/60 rounded text-slate-400 hover:text-rose-300 transition-colors">
-            <X className="w-3 h-3" />
-          </button>
-        </div>
-      </div>
-
       {/* Main App Layout: Left Sidebar + Right Content */}
       <div className="flex-1 min-h-0 flex overflow-hidden">
         {/* Left Sidebar */}

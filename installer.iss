@@ -30,9 +30,10 @@ OutputDir=hasil-installer
 OutputBaseFilename=CalClip-v2.0-Windows-Setup
 SetupIconFile=dist\ikon.ico
 UninstallDisplayIcon={app}\dist\ikon.ico
+ChangesAssociations=yes
 
 ; Kompresi Maksimal LZMA2 untuk Ukuran ~130-140 MB Mandiri Lengkap
-Compression=lzma2/max
+Compression=lzma2/normal
 SolidCompression=yes
 
 ; Gaya Jendela Wizard Modern
@@ -47,9 +48,9 @@ PrivilegesRequiredOverridesAllowed=dialog
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
-[Tasks]
-Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
-
+[Icons]
+Name: "{userprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; IconFilename: "{app}\dist\ikon.ico"
+Name: "{userdesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; IconFilename: "{app}\dist\ikon.ico"
 [Files]
 ; Launcher Utama Native & Cadangan
 Source: "CalClip.exe"; DestDir: "{app}"; Flags: ignoreversion
@@ -68,9 +69,6 @@ Source: "C:\Users\Asus ROG\AppData\Local\Programs\Studio Maliki\python\*"; DestD
 ; Binari Utilitas Eksekusi Mandiri (uv.exe)
 Source: "C:\Users\Asus ROG\AppData\Local\Programs\Studio Maliki\bin\*"; DestDir: "{app}\bin"; Flags: ignoreversion recursesubdirs createallsubdirs
 
-[Icons]
-Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; IconFilename: "{app}\dist\ikon.ico"
-Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; IconFilename: "{app}\dist\ikon.ico"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
