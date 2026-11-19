@@ -29,7 +29,7 @@ CalClip.IN adalah aplikasi desktop pemrosesan video otomatis untuk mengonversi v
 ### Berkas Instalasi
 
 Unduh berkas instalasi mandiri pada daftar **Assets** di bawah:
-- **`CalClip-v2.0-Windows-Setup.exe`** (144.19 MB)
+- **`CalClip-v2.0-Windows-Setup.exe`** (~145.76 MB)
   - Termasuk runtime mandiri: Python 3.12, PyWebView (Microsoft Edge WebView2), Faster-Whisper (CTranslate2), dan FFmpeg.
   - Kompatibel dengan Windows 10 dan Windows 11 (64-bit).
   - Tidak memerlukan hak akses Administrator (UAC) untuk instalasi.

@@ -29,29 +29,27 @@ Seluruh proses transkripsi, deteksi wajah, dan rendering video berjalan secara l
 ## Pratinjau Antarmuka
 
 <p align="center">
-  <b>1. Studio Editor Klip dan Pratinjau Kanvas 9:16</b><br>
-  <img src="docs/tangkapan-layar/01-studio-klip-preview.png" alt="Studio Editor & Preview" width="850">
+  <img src="docs/tangkapan-layar/pratinjau-kolase.png" alt="Pratinjau Antarmuka CalClip.IN" width="920">
 </p>
 
-<p align="center">
-  <b>2. Modal Sunting Subtitle dan Timeline Mini Trim Slider</b><br>
-  <img src="docs/tangkapan-layar/02-modal-trim-subtitle.png" alt="Modal Trim Subtitle" width="850">
-</p>
+<details>
+<summary><b>Klik di sini untuk melihat tangkapan layar per fitur secara terpisah</b></summary>
+<br>
+
+| 1. Studio Editor Klip 9:16 | 2. Modal Trim & Subtitle |
+| :---: | :---: |
+| <img src="docs/tangkapan-layar/01-studio-klip-preview.png" width="440" alt="Studio Editor"> | <img src="docs/tangkapan-layar/02-modal-trim-subtitle.png" width="440" alt="Modal Trim"> |
+
+| 3. Salin Caption & Tagar | 4. Deteksi Akselerasi GPU |
+| :---: | :---: |
+| <img src="docs/tangkapan-layar/03-salin-caption-hashtag.png" width="440" alt="Salin Caption"> | <img src="docs/tangkapan-layar/04-akselerasi-gpu-nvenc.png" width="440" alt="Akselerasi GPU"> |
 
 <p align="center">
-  <b>3. Generator Teks Deskripsi dan Tagar Distribusi Konten</b><br>
-  <img src="docs/tangkapan-layar/03-salin-caption-hashtag.png" alt="Salin Caption & Hashtag" width="850">
+  <b>5. Pengaturan Model AI Terintegrasi</b><br>
+  <img src="docs/tangkapan-layar/05-pengaturan-ai-update.png" width="700" alt="Pengaturan AI">
 </p>
 
-<p align="center">
-  <b>4. Deteksi Otomatis Akselerasi GPU Hardware</b><br>
-  <img src="docs/tangkapan-layar/04-akselerasi-gpu-nvenc.png" alt="Akselerasi GPU" width="850">
-</p>
-
-<p align="center">
-  <b>5. Pengaturan Model AI dan Pengecekan Pembaruan Terintegrasi</b><br>
-  <img src="docs/tangkapan-layar/05-pengaturan-ai-update.png" alt="Pengaturan AI" width="850">
-</p>
+</details>
 
 ---
 
