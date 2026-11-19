@@ -1028,12 +1028,12 @@ def main():
             return str(tujuan)
 
     if sys.platform == "darwin":
-        # Nama & ikon di menu bar/Dock: "Studio Maliki", bukan "python"
+        # Nama & ikon di menu bar/Dock: "CalClip.IN", bukan "python"
         try:
             from AppKit import NSApplication, NSImage
             from Foundation import NSBundle
             info = NSBundle.mainBundle().localizedInfoDictionary() or NSBundle.mainBundle().infoDictionary()
-            info["CFBundleName"] = "Studio Maliki"
+            info["CFBundleName"] = "CalClip.IN"
         except Exception:  # noqa: BLE001
             pass
 
@@ -1050,9 +1050,12 @@ def main():
             pass
 
     webview.settings["ALLOW_DOWNLOADS"] = True
-    webview.create_window("Studio Maliki", url, width=1360, height=880, min_size=(900, 640),
+    webview.create_window("CalClip.IN", url, width=1360, height=880, min_size=(900, 640),
                           background_color="#07090F", js_api=Jembatan())
-    webview.start(setelah_mulai)
+    ikon_file = DIST / "ikon.ico"
+    if not ikon_file.exists():
+        ikon_file = AKAR / "aset" / "ikon.ico"
+    webview.start(setelah_mulai, icon=str(ikon_file) if ikon_file.exists() else None)
     KERJA.batal()
     os._exit(0)
 

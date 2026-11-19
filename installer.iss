@@ -1,17 +1,17 @@
 ; =====================================================================
 ; Skrip Kompilasi Installer Windows (Inno Setup) untuk CalClip.IN v2.0
-; Standar Open Source: Ringan, Tanpa Butuh Hak Akses Administrator (UAC),
-; Menghasilkan CalClip-v2.0-Setup.exe Sekali Klik.
+; Bundel Mandiri 100% Lengkap (Python Runtime, AI Engine, & WebView2 GUI)
+; Bebas Izin Administrator (UAC), Ikon Resmi CC.in, Sekali Klik Siap Pakai.
 ; =====================================================================
 
 #define MyAppName "CalClip.IN"
 #define MyAppVersion "2.0.0"
 #define MyAppPublisher "CalClip Open Source"
 #define MyAppURL "https://github.com/IkhsanFreya/calclip"
-#define MyAppExeName "jalankan-calclip.bat"
+#define MyAppExeName "CalClip.exe"
 
 [Setup]
-; ID Unik Aplikasi
+; ID Unik Aplikasi CalClip.IN
 AppId={{D37F8E12-4A9B-4C82-95E1-71EFA891C021}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
@@ -31,8 +31,8 @@ OutputBaseFilename=CalClip-v2.0-Windows-Setup
 SetupIconFile=dist\ikon.ico
 UninstallDisplayIcon={app}\dist\ikon.ico
 
-; Rasio Kompresi Maksimal LZMA2
-Compression=lzma2/ultra64
+; Kompresi Maksimal LZMA2 untuk Ukuran ~130-140 MB Mandiri Lengkap
+Compression=lzma2/max
 SolidCompression=yes
 
 ; Gaya Jendela Wizard Modern
@@ -48,24 +48,32 @@ PrivilegesRequiredOverridesAllowed=dialog
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
-Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
+Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
 
 [Files]
-; Berkas Inti Antarmuka Web Produksi
-Source: "dist\*"; DestDir: "{app}\dist"; Flags: ignoreversion recursesubdirs createallsubdirs
-; Mesin Backend & AI Script
-Source: "alat\*"; DestDir: "{app}\alat"; Flags: ignoreversion recursesubdirs createallsubdirs
-; Skrip Eksekusi Launcher
+; Launcher Utama Native & Cadangan
+Source: "CalClip.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "jalankan-calclip.bat"; DestDir: "{app}"; Flags: ignoreversion
-; Ikon & Lisensi
 Source: "package.json"; DestDir: "{app}"; Flags: ignoreversion
 
+; Berkas Inti Antarmuka Web Produksi
+Source: "dist\*"; DestDir: "{app}\dist"; Flags: ignoreversion recursesubdirs createallsubdirs
+
+; Mesin Backend & AI Script
+Source: "alat\*"; DestDir: "{app}\alat"; Flags: ignoreversion recursesubdirs createallsubdirs
+
+; Python Runtime Mandiri Lengkap (PyWebView, PyTorch/ONNX, Faster-Whisper, FFmpeg)
+Source: "C:\Users\Asus ROG\AppData\Local\Programs\Studio Maliki\python\*"; DestDir: "{app}\python"; Flags: ignoreversion recursesubdirs createallsubdirs
+
+; Binari Utilitas Eksekusi Mandiri (uv.exe)
+Source: "C:\Users\Asus ROG\AppData\Local\Programs\Studio Maliki\bin\*"; DestDir: "{app}\bin"; Flags: ignoreversion recursesubdirs createallsubdirs
+
 [Icons]
-Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\dist\ikon.ico"
-Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\dist\ikon.ico"; Tasks: desktopicon
+Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; IconFilename: "{app}\dist\ikon.ico"
+Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; IconFilename: "{app}\dist\ikon.ico"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: shellexec postinstall nowait skipifsilent
+Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
 
 [UninstallDelete]
 ; Bersihkan file temporary build saat uninstall

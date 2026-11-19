@@ -24,16 +24,17 @@ title = 'CalClip.IN v2.0.0 - Auto Clipper 9:16 & Motion AI (Windows)'
 
 body = """## 🚀 CalClip.IN v2.0.0 — Rilis Resmi Windows
 
-Aplikasi desktop pemotong video panjang menjadi klip viral 9:16 (TikTok, Reels, Shorts) & generator Motion AI otomatis. 100% gratis, privasi terjaga, dan berjalan mandiri di laptopmu!
+Aplikasi desktop pemotong video panjang menjadi klip viral 9:16 (TikTok, Reels, Shorts) & generator Motion AI otomatis. 100% mandiri, bebas izin UAC/Administrator, dan berjalan sepenuhnya di laptopmu!
 
 ### 📥 Unduhan untuk Windows:
-Unduh berkas instalasi di bagian **Assets** di bawah:
-👉 **`CalClip-v2.0-Windows-Setup.exe`** *(6,66 MB)*  
-Klik dua kali untuk memasang di laptop Windows 10 / 11 64-bit tanpa perlu hak akses Administrator/UAC!
+Unduh berkas instalasi mandiri lengkap di bagian **Assets** di bawah:
+👉 **`CalClip-v2.0-Windows-Setup.exe`** *(~136 MB - Termasuk Python Runtime, AI Engine, & WebView2 GUI)*  
+Klik dua kali untuk memasang di laptop Windows 10 / 11 64-bit langsung siap pakai tanpa perlu instalasi Python manual!
 
 ---
 
 ### 🌟 Fitur Utama:
+- 🎨 **Ikon Resmi CC.in & Antarmuka Native:** Tampilan aplikasi desktop mandiri tanpa tab browser dengan launcher native `CalClip.exe` dan ikon resmi CC.in.
 - ⚡ **Akselerasi GPU Hardware Cerdas:** Mendukung NVIDIA NVENC (ekspor video 5x–8x lebih ngebut), Intel QuickSync, dan AMD AMF dengan auto-fallback aman ke CPU biasa.
 - 🟡 **1-Klik Preset Subtitle Influencer:** Pilihan gaya Alex Hormozi, MrBeast, Ali Abdaal, dan TikTok Neon.
 - ✂️ **Timeline Mini Trim Slider:** Potong detik mulai dan selesai (-1s / +1s) dengan live kalkulasi durasi.
@@ -85,7 +86,22 @@ except urllib.error.HTTPError as e:
     else:
         raise
 
-# 3. Upload binary CalClip-v2.0-Windows-Setup.exe
+# 3. Hapus asset lama jika ada agar bisa digantikan versi baru
+assets_req = urllib.request.Request(f'{release_url}/{release_id}/assets', headers=headers)
+try:
+    with urllib.request.urlopen(assets_req) as aresp:
+        assets_list = json.loads(aresp.read().decode())
+        for a in assets_list:
+            if a.get('name') == 'CalClip-v2.0-Windows-Setup.exe':
+                aid = a['id']
+                print(f"Menghapus asset lama ID {aid}...")
+                del_req = urllib.request.Request(f'https://api.github.com/repos/{repo}/releases/assets/{aid}', headers=headers, method='DELETE')
+                with urllib.request.urlopen(del_req) as dresp:
+                    print("Asset lama berhasil dihapus.")
+except Exception as ea:
+    print(f"Catatan pengecekan asset: {ea}")
+
+# 4. Upload binary CalClip-v2.0-Windows-Setup.exe
 exe_path = os.path.abspath('hasil-installer/CalClip-v2.0-Windows-Setup.exe')
 exe_name = 'CalClip-v2.0-Windows-Setup.exe'
 exe_size = os.path.getsize(exe_path)
@@ -112,8 +128,5 @@ try:
         print('Download URL:', asset_data.get('browser_download_url'))
 except urllib.error.HTTPError as e:
     err_body = e.read().decode()
-    if 'already_exists' in err_body:
-        print('Asset sudah ada di rilis, upload dilewati atau sudah siap!')
-    else:
-        print('Upload error:', e.code, err_body)
-        raise
+    print('Upload error:', e.code, err_body)
+    raise
