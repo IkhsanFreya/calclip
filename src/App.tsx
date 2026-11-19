@@ -49,6 +49,19 @@ export function App() {
     statusTitle: 'Menganalisis video',
   });
 
+  // Deteksi pertama kali pakai (First-time onboarding wizard)
+  useEffect(() => {
+    fetch('/api/sistem-detail')
+      .then((r) => r.json())
+      .then((data) => {
+        const sudah = data?.wizard_selesai || localStorage.getItem('calclip_wizard_selesai') === 'true';
+        if (!sudah) {
+          setIsSettingsModalOpen(true);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   const handleAnalysisStateChange = useCallback(
     (isAnalyzing: boolean, timeStr: string, stepLabel: string, statusTitle?: string) => {
       setAnalysisInfo((prev) => {

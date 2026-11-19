@@ -14,7 +14,7 @@ export const ModalPengaturan: React.FC<ModalPengaturanProps> = ({
   onNavigateKlip,
   onNavigateMotion,
 }) => {
-  const [step, setStep] = useState<number>(2); // Start at step 2 (komponen) as in user's screenshot
+  const [step, setStep] = useState<number>(1); // Mulai dari langkah 1 (Persyaratan Sistem)
   const [aiChoice, setAiChoice] = useState<'lokal' | 'gemini' | 'ollama' | 'langganan'>('lokal');
   const [testResult, setTestResult] = useState<string | null>(null);
   const [sistemStatus, setSistemStatus] = useState<{ klip: boolean; motion: boolean; voxcpm: boolean }>({
@@ -22,6 +22,14 @@ export const ModalPengaturan: React.FC<ModalPengaturanProps> = ({
     motion: true,
     voxcpm: true,
   });
+
+  const handleSelesai = () => {
+    fetch('/api/wizard-selesai', { method: 'POST', body: '{}' }).catch(() => {});
+    try {
+      localStorage.setItem('calclip_wizard_selesai', 'true');
+    } catch {}
+    onClose();
+  };
 
   React.useEffect(() => {
     if (isOpen) {
@@ -326,7 +334,7 @@ export const ModalPengaturan: React.FC<ModalPengaturanProps> = ({
 
                 <div
                   onClick={() => {
-                    onClose();
+                    handleSelesai();
                     onNavigateMotion();
                   }}
                   className="bg-[#0b0f19] border border-slate-800 hover:border-indigo-500/40 rounded-xl p-5 cursor-pointer space-y-2 group"
@@ -364,7 +372,7 @@ export const ModalPengaturan: React.FC<ModalPengaturanProps> = ({
             </button>
           ) : (
             <button
-              onClick={onClose}
+              onClick={handleSelesai}
               className="px-5 py-2 rounded-xl bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-bold text-xs transition-colors"
             >
               Selesai
