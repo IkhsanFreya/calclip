@@ -136,4 +136,5 @@ Antarmuka aplikasi dapat diakses melalui browser pada alamat:
 
 ## Lisensi
 
-Proyek ini dilisensikan di bawah **MIT License**. Hak cipta dan izin penggunaan terbuka untuk keperluan personal maupun komersial.
+Proyek ini dilisensikan di bawah **MIT License**. Hak cipta dan izin penggunaan terbuka, Terimakasih ENJOY
+.
