@@ -979,6 +979,9 @@ def server_hidup(url: str) -> bool:
 def main():
     global PORT
     DATA.mkdir(parents=True, exist_ok=True)
+    if os.name == "nt":
+        # Lindungi WebView2 dari crash saat lonjakan beban GPU encoder NVENC
+        os.environ["WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"] = "--disable-gpu-watchdog --disable-gpu-process-crash-limit"
     # Port 8787 bisa dipakai aplikasi lain (mis. server pengembangan). Cari Studio yang sudah jalan,
     # kalau tidak ada, pakai port kosong pertama dari 8787–8806.
     sudah, srv = False, None
@@ -1055,9 +1058,13 @@ def main():
     ikon_file = DIST / "ikon.ico"
     if not ikon_file.exists():
         ikon_file = AKAR / "aset" / "ikon.ico"
-    webview.start(setelah_mulai, icon=str(ikon_file) if ikon_file.exists() else None)
-    KERJA.batal()
-    os._exit(0)
+    try:
+        webview.start(setelah_mulai, icon=str(ikon_file) if ikon_file.exists() else None)
+    except Exception as e:
+        (DATA / "crash.log").write_text(f"WebView error: {e}\n", encoding="utf-8")
+    finally:
+        KERJA.batal()
+        os._exit(0)
 
 
 if __name__ == "__main__":

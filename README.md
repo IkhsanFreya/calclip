@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="dist/logo.png" alt="CalClip.IN Logo" width="180">
+  <img src="docs/logo.png" alt="CalClip.IN Logo" width="220">
 </p>
 
 <h1 align="center">CalClip.IN</h1>

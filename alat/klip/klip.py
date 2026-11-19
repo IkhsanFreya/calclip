@@ -158,8 +158,15 @@ class Kalimat:
 
 def transkrip(file: Path, model: str, bahasa: str | None) -> list[Kalimat]:
     from faster_whisper import WhisperModel
-    log(f"Transkripsi dengan faster-whisper model '{model}' (pertama kali akan mengunduh model)…")
-    m = WhisperModel(model, device="cpu", compute_type="int8")
+    import ctranslate2
+    device = "cuda" if ctranslate2.get_cuda_device_count() > 0 else "cpu"
+    compute_type = "float16" if device == "cuda" else "int8"
+    log(f"Transkripsi dengan faster-whisper model '{model}' [{device.upper()}] (pertama kali akan mengunduh model)…")
+    try:
+        m = WhisperModel(model, device=device, compute_type=compute_type)
+    except Exception as e:
+        log(f"Akselerasi GPU Whisper tidak tersedia ({e}), beralih ke CPU (int8)...")
+        m = WhisperModel(model, device="cpu", compute_type="int8")
     sr = 16000  # decode sendiri dengan ffmpeg bawaan → tidak bergantung versi PyAV
     raw = subprocess.run([ffmpeg(), "-v", "error", "-i", str(file), "-ac", "1", "-ar", str(sr), "-f", "s16le", "-"],
                          capture_output=True, check=True).stdout
