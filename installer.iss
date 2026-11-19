@@ -88,7 +88,13 @@ ExitSetupMessage=Instalasi tidak lengkap. Bila Anda keluar sekarang, program tak
 ClickFinish=Klik Selesai untuk keluar dari Instalasi.
 FinishedHeadingLabel=Menyelesaikan Pemandu Instalasi [name]
 FinishedLabel=Instalasi telah selesai memasang [name] pada komputer Anda. Aplikasi dapat dijalankan dengan memilih pintasan yang terpasang.
-LaunchProgram=Jalankan %1
+
+; *** Copot Pemasangan (Uninstaller)
+UninstallAppTitle=Copot Pemasangan
+UninstallAppFullTitle=Copot Pemasangan - %1
+ConfirmUninstall=Apakah Anda yakin ingin menghapus %1 beserta seluruh komponennya?
+UninstalledAll=%1 telah berhasil dihapus dari komputer Anda.
+UninstalledMost=Penghapusan %1 telah selesai.
 
 [CustomMessages]
 indonesian.CreateDesktopIcon=Buat pintasan di Desktop
@@ -120,12 +126,11 @@ Source: "C:\Users\Asus ROG\AppData\Local\Programs\Studio Maliki\bin\*"; DestDir:
 
 
 [Run]
-Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\{#MyAppExeName}"; Description: "Jalankan {#MyAppName}"; Flags: nowait postinstall skipifsilent
 
 [UninstallDelete]
-; Bersihkan file temporary build saat uninstall
-Type: filesandordirs; Name: "{app}\dist"
-Type: filesandordirs; Name: "{app}\alat\__pycache__"
+; Bersihkan seluruh direktori instalasi aplikasi agar tidak ada berkas tersisa
+Type: filesandordirs; Name: "{app}"
 
 [Code]
 // Konfirmasi apakah pengguna ingin menyimpan data video riwayat di folder CalClip
@@ -135,8 +140,8 @@ var
 begin
   if CurUninstallStep = usPostUninstall then
   begin
-    DataDir := ExpandConstant('{userprofile}\CalClip');
-    if DirExists(DataDir) then
+    DataDir := ExpandConstant('{%USERPROFILE}\CalClip');
+    if (DataDir <> '') and DirExists(DataDir) then
     begin
       if MsgBox('Apakah Anda juga ingin menghapus folder data video dan pengaturan di ' + DataDir + '?', mbConfirmation, MB_YESNO) = IDYES then
       begin
