@@ -238,7 +238,7 @@ def ref_suara() -> Path | None:
 VERSI_APLIKASI = "2.0.0"
 
 
-def cek_pembaruan(repo: str = "malikix/callclip") -> dict:
+def cek_pembaruan(repo: str = "IkhsanFreya/callclip") -> dict:
     """Cek rilis terbaru dari GitHub Releases untuk in-app auto update."""
     import urllib.request
     try:

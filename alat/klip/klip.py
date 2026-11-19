@@ -175,12 +175,22 @@ def transkrip(file: Path, model: str, bahasa: str | None) -> list[Kalimat]:
     # menular ke kalimat berikutnya / pengulangan), dan prompt awal berisi gaya bahasa sehari-hari sebagai petunjuk ejaan.
     petunjuk = ("Percakapan santai bahasa Indonesia: nggak, enggak, gimana, kayak, banget, sih, dong, kok, gue, lo, "
                 "YouTube, podcast, konten, viral.") if (bahasa or "id") == "id" else None
-    segs, info = m.transcribe(audio, language=bahasa, word_timestamps=True, vad_filter=True, beam_size=5,
-                              condition_on_previous_text=False, initial_prompt=petunjuk)
     hasil = []
-    for s in segs:
-        kata = [Kata(w.start, w.end, w.word.strip()) for w in (s.words or []) if w.word.strip()]
-        hasil.append(Kalimat(s.start, s.end, s.text.strip(), kata))
+    try:
+        segs, info = m.transcribe(audio, language=bahasa, word_timestamps=True, vad_filter=True, beam_size=5,
+                                  condition_on_previous_text=False, initial_prompt=petunjuk)
+        for s in segs:
+            kata = [Kata(w.start, w.end, w.word.strip()) for w in (s.words or []) if w.word.strip()]
+            hasil.append(Kalimat(s.start, s.end, s.text.strip(), kata))
+    except Exception as e:
+        log(f"Akselerasi GPU Whisper bermasalah ({e}), beralih ke CPU (int8)...")
+        m_cpu = WhisperModel(model, device="cpu", compute_type="int8")
+        segs, info = m_cpu.transcribe(audio, language=bahasa, word_timestamps=True, vad_filter=True, beam_size=5,
+                                      condition_on_previous_text=False, initial_prompt=petunjuk)
+        hasil = []
+        for s in segs:
+            kata = [Kata(w.start, w.end, w.word.strip()) for w in (s.words or []) if w.word.strip()]
+            hasil.append(Kalimat(s.start, s.end, s.text.strip(), kata))
     log(f"Bahasa terdeteksi: {info.language}, {len(hasil)} kalimat.")
     return hasil
 
