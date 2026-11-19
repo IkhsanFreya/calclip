@@ -669,6 +669,50 @@ def _korelasi(x: np.ndarray, y: np.ndarray) -> float:
     return float(np.corrcoef(x, y)[0, 1])
 
 
+class KalmanFilterLinear2D:
+    """Filter Kalman Linear 2D untuk estimasi lintasan kamera dan peredaman jitter pada dynamic auto-reframing.
+
+    State vector: [x, y, vx, vy]^T
+    Model gerak konstan kecepatan (Constant Velocity Model) untuk pelacakan koordinat wajah
+    mengacu pada arsitektur Wu dkk. (2023) dan evaluasi Camera Jitter Index (CJI).
+    """
+
+    def __init__(self, q_pos: float = 0.00015, q_vel: float = 0.002, r_noise: float = 0.04):
+        self.state = np.array([0.5, 0.5, 0.0, 0.0], dtype=np.float64)  # [x, y, vx, vy]
+        self.P = np.eye(4, dtype=np.float64)  # Matriks kovarians error estimasi (4x4)
+        self.q_pos = q_pos
+        self.q_vel = q_vel
+        self.r_noise = r_noise
+        self.H = np.array([[1.0, 0.0, 0.0, 0.0],
+                           [0.0, 1.0, 0.0, 0.0]], dtype=np.float64)
+
+    def set_state(self, x: float, y: float = 0.5) -> None:
+        self.state = np.array([x, y, 0.0, 0.0], dtype=np.float64)
+        self.P = np.eye(4, dtype=np.float64)
+
+    def get_pos(self) -> tuple[float, float]:
+        return float(self.state[0]), float(self.state[1])
+
+    def predict(self, dt: float) -> tuple[float, float]:
+        self.state[0] += self.state[2] * dt
+        self.state[1] += self.state[3] * dt
+        self.P[0, 0] += self.q_pos
+        self.P[1, 1] += self.q_pos
+        self.P[2, 2] += self.q_vel
+        self.P[3, 3] += self.q_vel
+        return float(self.state[0]), float(self.state[1])
+
+    def update(self, meas_x: float, meas_y: float = 0.5) -> tuple[float, float]:
+        z = np.array([meas_x, meas_y], dtype=np.float64)
+        y = z - self.H @ self.state
+        S = self.H @ self.P @ self.H.T + np.eye(2, dtype=np.float64) * self.r_noise
+        K = self.P @ self.H.T @ np.linalg.inv(S)
+        self.state += K @ y
+        I = np.eye(4, dtype=np.float64)
+        self.P = (I - K @ self.H) @ self.P
+        return float(self.state[0]), float(self.state[1])
+
+
 def jejak_wajah(file: Path, a: float, b: float, w: int, h: int) -> list[tuple[float, float]]:
     """Titik kunci (detik relatif klip, posisi-x 0..1) yang mengikuti PEMBICARA AKTIF.
 
@@ -811,28 +855,54 @@ def jejak_wajah(file: Path, a: float, b: float, w: int, h: int) -> list[tuple[fl
             target[j] = akhir
         else:
             akhir = target[j]
-    # kamera menahan posisi; pindah seketika di potongan kamera, atau bila pembicara baru bertahan ≥ 0,8 dtk
-    kam, calon, lama = target[0], target[0], 0
+
+    # Penerapan Filter Kalman Linear 2D + Deadzone Hysteresis untuk Dynamic Auto-Reframing stabil
+    kalman = KalmanFilterLinear2D()
+    kalman.set_state(target[0], 0.5)
+    dt = 1.0 / fps
+    deadzone = 0.025  # ambang deadzone peredam micro-jitter wajah (2.5% layar)
+    max_vel = 0.85    # pembatasan kecepatan perpindahan kamera (L1-norm velocity clamp)
+
+    smoothed = [target[0]] * n
+    for j in range(n):
+        raw_x = target[j]
+        if j == 0 or potong[j]:
+            # Shot cut / pergantian adegan: reset state Kalman agar potong seketika (jump cut) tanpa geser lewat ruang kosong
+            kalman.set_state(raw_x, 0.5)
+            smoothed[j] = raw_x
+            continue
+
+        curr_x, _ = kalman.get_pos()
+        dist = abs(raw_x - curr_x)
+        # Jika di dalam radius deadzone, redam tarikan pengukuran untuk menekan camera jitter
+        meas_x = curr_x + (raw_x - curr_x) * 0.2 if dist < deadzone else raw_x
+
+        kalman.predict(dt)
+        kx, _ = kalman.update(meas_x, 0.5)
+
+        # Velocity clamping
+        max_delta = max_vel * dt
+        dx = float(np.clip(kx - curr_x, -max_delta, max_delta))
+        smoothed[j] = curr_x + dx
+        kalman.state[0] = smoothed[j]
+
+    # Konstruksi titik kunci (kunci) untuk filter crop FFmpeg & payload telemetri
+    kam = smoothed[0]
     kunci: list[tuple[float, float]] = [(0.0, kam)]
     for j in range(1, n):
-        baru = None
+        t = j / fps
         if potong[j]:
-            baru = target[j]
-            calon, lama = baru, 0
-        elif abs(target[j] - kam) > DEKAT:
-            if abs(target[j] - calon) < DEKAT:
-                lama += 1
-            else:
-                calon, lama = target[j], 1
-            if lama >= int(0.8 * fps):
-                baru, lama = calon, 0
+            # Lompat tegas di potongan kamera (shot cut)
+            if abs(smoothed[j] - kam) > 0.01:
+                kunci.append((max(t - 0.02, kunci[-1][0] + 0.01), kam))
+                kunci.append((t, smoothed[j]))
+                kam = smoothed[j]
         else:
-            lama = 0
-        if baru is not None and abs(baru - kam) > 0.01:
-            t = j / fps
-            kunci.append((max(t - 0.02, kunci[-1][0] + 0.01), kam))  # tahan sampai detik pindah …
-            kunci.append((t, baru))                                   # … lalu lompat tegas
-            kam = baru
+            # Mengikuti lintasan halus Kalman jika bergeser melampaui batas toleransi
+            if abs(smoothed[j] - kam) >= 0.02:
+                kunci.append((round(t, 2), round(smoothed[j], 3)))
+                kam = smoothed[j]
+
     kunci.append(((n - 1) / fps + 1 / fps, kam))
     return kunci
 
