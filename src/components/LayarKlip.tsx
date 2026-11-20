@@ -1,5 +1,12 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
+  Scissors,
+  Type,
+  Layers,
+  Palette,
+  Sliders,
+  RotateCcw,
+  RotateCw,
   Upload,
   Play,
   Pause,
@@ -7,7 +14,6 @@ import {
   Copy,
   FolderOpen,
   Search,
-  ChevronDown,
   Edit3,
   Download,
   ArrowLeft,
@@ -18,7 +24,6 @@ import {
   Zap,
   Sparkles,
   Video,
-  Hash,
   Cpu,
 } from 'lucide-react';
 import {
@@ -63,7 +68,6 @@ const DEFAULT_DETAILED_CLIPS: DetailedClip[] = [
     caption: 'Dan karena apa?',
     reason: 'pembuka kuat · ada pertanyaan · 3 kata pemikat · bicara padat',
     isChecked: true,
-    file: 'klip-05.mp4',
   },
   {
     id: 1,
@@ -79,7 +83,6 @@ const DEFAULT_DETAILED_CLIPS: DetailedClip[] = [
     caption: 'Jadi gini, cara kerja otak itu adalah mereka hanya akan mengingat sesu',
     reason: 'pembuka kuat · 3 kata pemikat · bicara padat · sering diputar ulang',
     isChecked: true,
-    file: 'klip-01.mp4',
   },
   {
     id: 3,
@@ -95,7 +98,6 @@ const DEFAULT_DETAILED_CLIPS: DetailedClip[] = [
     caption: 'Kok sama semangketan saya?',
     reason: 'pembuka kuat · ada pertanyaan · 1 kata pemikat · bicara padat',
     isChecked: true,
-    file: 'klip-03.mp4',
   },
   {
     id: 2,
@@ -111,7 +113,6 @@ const DEFAULT_DETAILED_CLIPS: DetailedClip[] = [
     caption: 'Cara kerja otak tuh begitu.',
     reason: 'pembuka kuat · ada pertanyaan · 2 kata pemikat',
     isChecked: true,
-    file: 'klip-02.mp4',
   },
   {
     id: 4,
@@ -127,7 +128,6 @@ const DEFAULT_DETAILED_CLIPS: DetailedClip[] = [
     caption: 'Saya harus menggaris bahwa materi -materi pendidikan kita tidak releva',
     reason: 'pembuka kuat · ada pertanyaan · 5 kata pemikat',
     isChecked: true,
-    file: 'klip-04.mp4',
   },
 ];
 
@@ -374,6 +374,51 @@ export function bungkus(
   return baris;
 }
 
+const EMOJI_MAP: [RegExp, string][] = [
+  [/\b(uang|duit|gaji|kaya|cuan|bisnis|jual|untung|profit|investasi|hemat)\b/i, '💰'],
+  [/\b(cinta|sayang|hati|nikah|istri|suami|pacar)\b/i, '❤️'],
+  [/\b(api|panas|viral|hebat|keren|fyp|trending|meledak|populer)\b/i, '🔥'],
+  [/\b(ide|pikir|otak|ilmu|belajar|paham|tips|trik|kunci|rahasia)\b/i, '💡'],
+  [/\b(waktu|jam|cepat|lambat|telat|detik)\b/i, '⏰'],
+  [/\b(rahasia|diam|bisik)\b/i, '🤫'],
+  [/\b(penting|bahaya|awas|hati-hati|peringatan)\b/i, '⚠️'],
+  [/\b(salah|jangan|dilarang|gagal|zonk|rugi|boncos|rungkad)\b/i, '❌'],
+  [/\b(benar|betul|berhasil|sukses|bisa|gacor|menang|hoki)\b/i, '✅'],
+  [/\b(lucu|ketawa|tertawa|ngakak|kocak)\b/i, '😂'],
+  [/\b(ternyata|kaget|gila|parah|serius|syok|waduh|anjir)\b/i, '😱'],
+  [/\b(allah|tuhan|doa|sholat|salat|ibadah|quran|alquran|nabi|islam)\b/i, '🤲'],
+  [/\b(makan|lapar|masak|kopi)\b/i, '🍽️'],
+  [/\b(kerja|kantor|karier|karir)\b/i, '💼'],
+  [/\b(sehat|olahraga|kuat|otot)\b/i, '💪'],
+  [/\b(uji|tes|soal|sekolah|kuliah|buku)\b/i, '📚'],
+  [/\b(rumah|keluarga|anak|ibu|ayah|bapak)\b/i, '🏠'],
+  [/\b(hp|handphone|aplikasi|internet|ai|game|gaming|mabar|topup|diamond|skin)\b/i, '📱'],
+  [/\b(mati|meninggal|takut|seram|hantu|jin|setan|iblis)\b/i, '👻'],
+  [/\b(mahal|murah|harga|diskon)\b/i, '🏷️'],
+];
+
+export const getEmojiForWord = (word: string): string | null => {
+  const clean = word.toLowerCase().replace(/[^a-z0-9]/g, '');
+  for (const [re, em] of EMOJI_MAP) {
+    if (re.test(clean)) return em;
+  }
+  return null;
+};
+
+export const getSentimentColor = (word: string, fallbackColor: string): string => {
+  const clean = word.toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (/\b(untung|cuan|kaya|sukses|berhasil|bisa|topup|diamond|gacor|wangi|profit|hemat)\b/i.test(clean)) {
+    return '#3DFF8A'; // Hijau Viral
+  }
+  if (/\b(jangan|gagal|zonk|rugi|bahaya|awas|salah|rusak|parah|batal|boncos|rungkad|mati)\b/i.test(clean)) {
+    return '#FF453A'; // Merah Neon
+  }
+  if (/\d+/.test(clean) || /\b(penting|rahasia|kunci|trik|fokus)\b/i.test(clean)) {
+    return '#FFD400'; // Kuning Emas
+  }
+  return fallbackColor;
+};
+
 interface LayarKlipProps {
   currentSource: VideoSourceMeta;
   viralMoments: ViralMoment[];
@@ -452,8 +497,8 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
 
   currentTime,
   duration: _duration,
-  isPlaying,
-  onTogglePlay,
+  isPlaying: _isPlaying,
+  onTogglePlay: _onTogglePlay,
   onSeek,
   onReset: _onReset,
 
@@ -496,6 +541,7 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
   // View state: 'input' (dropzone & setup) vs 'results' (the full Studio Maliki results view)
   const [hasResults, setHasResults] = useState<boolean>(false);
   const [isAturGayaOpen, setIsAturGayaOpen] = useState<boolean>(false);
+  const [editorActiveTab, setEditorActiveTab] = useState<'gaya' | 'teks' | 'hook' | 'layout' | 'potong' | 'efek'>('gaya');
 
   // 5-Step Pipeline State matching screenshot 8450cc9e.jpg
   type StepStatus = 'Menunggu' | 'Berjalan...' | 'Beres';
@@ -543,8 +589,37 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
   const [thumbnailUrl, setThumbnailUrl] = useState<string>('');
   const [videoDuration, setVideoDuration] = useState<number>(0);
   const [currentVideoTime, setCurrentVideoTime] = useState<number>(0);
+  const [isVideoPlaying, setIsVideoPlaying] = useState<boolean>(false);
+  const [customHooksByClip, setCustomHooksByClip] = useState<Record<string, string>>({});
+  const customHooksByClipRef = useRef<Record<string, string>>({});
+  customHooksByClipRef.current = customHooksByClip;
+
+  interface TranscriptWord {
+    mulai: number;
+    selesai: number;
+    teks: string;
+  }
+  interface TranscriptSegment {
+    mulai: number;
+    selesai: number;
+    teks: string;
+    kata?: TranscriptWord[];
+  }
+  const [projectTranscript, setProjectTranscript] = useState<TranscriptSegment[]>([]);
+
+  // Filmstrip Interactive States
+  const filmstripContainerRef = useRef<HTMLDivElement | null>(null);
+  const [isScrubbingFilmstrip, setIsScrubbingFilmstrip] = useState<boolean>(false);
+  const [isDraggingLeftHandle, setIsDraggingLeftHandle] = useState<boolean>(false);
+  const [isDraggingRightHandle, setIsDraggingRightHandle] = useState<boolean>(false);
+
+  const getFullHookText = useCallback((mainText: string, prefix: string, suffix: string) => {
+    const parts = [prefix.trim(), mainText.trim(), suffix.trim()].filter(Boolean);
+    return parts.join(' ');
+  }, []);
   const [waveformEnergy, setWaveformEnergy] = useState<number[]>([]);
   const videoElemRef = useRef<HTMLVideoElement | null>(null);
+  const activeClipRangeRef = useRef<{ id: number; start: number; end: number }>({ id: 0, start: 0, end: 30 });
 
   // Helper to construct non-IDM streaming URL for videos (omits .mp4 so IDM extension never intercepts it)
   const getStreamUrl = useCallback((proj: string, filename?: string) => {
@@ -558,11 +633,71 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
   }, []);
 
   // Studio Render 1080x1920 Configuration matching screenshots e5f936c1.jpg, f79932d9.jpg, 2e48a1b0.jpg, 89752451.jpg
+  const [selectedLanguage, setSelectedLanguage] = useState<string>('auto');
   const [canvasRatio, setCanvasRatio] = useState<'9:16' | '1:1' | '4:3' | '16:9'>('9:16');
+  const [canvasFrameMode, setCanvasFrameMode] = useState<'asli' | '9:16_letterbox'>('asli');
   const [barBackground, setBarBackground] = useState<'hitam' | 'buram'>('buram');
+
+  const canvasDim = useMemo(() => {
+    if (canvasFrameMode === '9:16_letterbox') {
+      return {
+        w: 540,
+        h: 960,
+        cssW: 270,
+        cssH: 480,
+        r: '24px',
+        maxW: 'max-w-[300px]',
+        label: `9:16 Vertikal (Isi ${canvasRatio})`,
+      };
+    }
+    switch (canvasRatio) {
+      case '1:1':
+        return {
+          w: 540,
+          h: 540,
+          cssW: 270,
+          cssH: 270,
+          r: '18px',
+          maxW: 'max-w-[290px]',
+          label: '1:1 Persegi (Kotak)',
+        };
+      case '4:3':
+        return {
+          w: 540,
+          h: 405,
+          cssW: 290,
+          cssH: 218,
+          r: '16px',
+          maxW: 'max-w-[310px]',
+          label: '4:3 Klasik (Tablet)',
+        };
+      case '16:9':
+        return {
+          w: 640,
+          h: 360,
+          cssW: 320,
+          cssH: 180,
+          r: '14px',
+          maxW: 'max-w-[330px]',
+          label: '16:9 Lebar (Horizontal)',
+        };
+      case '9:16':
+      default:
+        return {
+          w: 540,
+          h: 960,
+          cssW: 260,
+          cssH: 462,
+          r: '24px',
+          maxW: 'max-w-[280px]',
+          label: '9:16 Vertikal (HP)',
+        };
+    }
+  }, [canvasRatio, canvasFrameMode]);
   const [renderedCount, setRenderedCount] = useState<number>(0);
   const [focusPoint, setFocusPoint] = useState<'otomatis' | 'kiri' | 'tengah' | 'kanan'>('otomatis');
-  const [layoutMode, setLayoutMode] = useState<'satu' | 'atas_bawah' | 'pip' | 'split'>('satu');
+  const [layoutMode, setLayoutMode] = useState<'satu' | 'podcast_auto' | 'atas_bawah' | 'pip' | 'split'>('satu');
+  const [isDetectingPodcast, setIsDetectingPodcast] = useState<boolean>(false);
 
   // Streamer / Content Creator & Gameplay Layout Controls
   const [streamerFaceHeight, setStreamerFaceHeight] = useState<number>(42); // 30% - 55%
@@ -584,9 +719,9 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
   const [podcastSwap, setPodcastSwap] = useState<boolean>(false); // Swap top / bottom
   const [podcastSplitRatio, setPodcastSplitRatio] = useState<number>(50); // 50:50, 45:55, etc.
   const [podcastAutoTransition, setPodcastAutoTransition] = useState<boolean>(true); // Smart auto-switch 1 shot ⇄ 2 screens
-  const [podcastPreviewShot, setPodcastPreviewShot] = useState<'auto' | 'split' | 'single'>('auto'); // Live preview switcher (auto / split / single)
+  const [podcastPreviewShot, setPodcastPreviewShot] = useState<'auto' | 'split' | 'single' | 'p1' | 'p2'>('auto'); // Live preview switcher (auto / split / single / p1 / p2)
   const [podcastSingleFocusX, setPodcastSingleFocusX] = useState<number>(0.50); // Single speaker focus (default center 50%)
-  const [hasHookBanner, setHasHookBanner] = useState<boolean>(true);
+  const [hasHookBanner, setHasHookBanner] = useState<boolean>(false); // default OFF — user aktifkan kalau mau
   const [bannerPrefix, setBannerPrefix] = useState('');
   const [bannerSuffix, setBannerSuffix] = useState('');
   const [hasSubtitles, setHasSubtitles] = useState<boolean>(true);
@@ -596,8 +731,15 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
   const [letterCase, setLetterCase] = useState<'ABC' | 'Asli' | 'abc'>('ABC');
   const [verticalPos, setVerticalPos] = useState<number>(72);
   const [colorHighlight, setColorHighlight] = useState<boolean>(true);
-  const [zoomKeyphrase, setZoomKeyphrase] = useState<boolean>(true);
+  const [zoomKeyphrase, setZoomKeyphrase] = useState<boolean>(false); // default OFF — cegah zoom acak di video
   const [bottomProgress, setBottomProgress] = useState<boolean>(true);
+  const [progressBarColor, setProgressBarColor] = useState<'cyan' | 'kuning' | 'hijau' | 'pelangi'>('cyan');
+  const [progressBarThickness, setProgressBarThickness] = useState<number>(8);
+  const [autoMicroSfx, setAutoMicroSfx] = useState<boolean>(true);
+  const [autoAudioDucking, setAutoAudioDucking] = useState<boolean>(true);
+  const [highlightColor, setHighlightColor] = useState<string>('#3DFF8A'); // default Hijau Viral
+  const [customWordStyles, setCustomWordStyles] = useState<Record<string, { color?: string; emoji?: string }>>({});
+  const [selectedWordForEdit, setSelectedWordForEdit] = useState<string | null>(null);
   const [autoEmoji, setAutoEmoji] = useState<boolean>(true);
   const [sensorKataKasar, setSensorKataKasar] = useState<boolean>(false);
   const [hardwareInfo, setHardwareInfo] = useState<{ encoder: string; label: string; is_gpu: boolean } | null>(null);
@@ -753,7 +895,7 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
     if (typeof window !== 'undefined' && 'Notification' in window) {
       if (Notification.permission === 'granted') {
         try {
-          new Notification("CalClip.IN - Render Selesai! 🎉", {
+          new Notification("CalClip.IN - Render Selesai!", {
             body: `${count} klip MP4 9:16 berhasil dirender dan siap diunduh.`,
             icon: '/logo.png',
           });
@@ -764,7 +906,7 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
         Notification.requestPermission().then((perm) => {
           if (perm === 'granted') {
             try {
-              new Notification("CalClip.IN - Render Selesai! 🎉", {
+              new Notification("CalClip.IN - Render Selesai!", {
                 body: `${count} klip MP4 9:16 berhasil dirender dan siap diunduh.`,
                 icon: '/logo.png',
               });
@@ -820,14 +962,34 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
     setSelectedFont(p.font);
     setLetterCase(p.huruf === 'kapital' ? 'ABC' : p.huruf === 'kecil' ? 'abc' : 'Asli');
     setTextSize('sedang');
-    setZoomKeyphrase(p.zoom ?? true);
+    setZoomKeyphrase(p.zoom ?? false);
     setBottomProgress(p.progres ?? true);
     if (p.latar) setBarBackground(p.latar === 'blur' ? 'buram' : 'hitam');
-    if (p.judul) setHasHookBanner(false);
-    else setHasHookBanner(true);
+    setHasHookBanner(false); // preset tidak set banner — selalu mulai OFF
   };
 
   const activeClip = clips.find((c) => c.id === activeClipId) || clips[0];
+
+  // Sync editing fields with activeClip
+  useEffect(() => {
+    if (activeClip) {
+      setEditTitleInput(activeClip.title || '');
+      setEditQuoteInput(activeClip.quote || '');
+      setEditCaptionInput(activeClip.caption || '');
+      const s = activeClip.startTime || 0;
+      const e = activeClip.endTime || (s + (activeClip.durationSec || 30));
+      setEditStartTime(s);
+      setEditEndTime(e);
+      activeClipRangeRef.current = { id: activeClip.id, start: s, end: e };
+    }
+  }, [activeClip?.id]);
+
+  useEffect(() => {
+    if (editEndTime > editStartTime) {
+      activeClipRangeRef.current.start = editStartTime;
+      activeClipRangeRef.current.end = editEndTime;
+    }
+  }, [editStartTime, editEndTime]);
   const checkedClipsCount = clips.filter((c) => c.isChecked).length;
 
   const handleDetectFacecam = async () => {
@@ -843,16 +1005,45 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
         if (data.x !== undefined && data.y !== undefined) {
           setStreamerFaceX(Number(data.x.toFixed(3)));
           setStreamerFaceY(Number(data.y.toFixed(3)));
-          if (data.zoom) setStreamerFaceZoom(Number(data.zoom.toFixed(1)));
+          const zm = data.zoom ? Math.max(3.2, Number(data.zoom.toFixed(1))) : 3.6;
+          setStreamerFaceZoom(zm);
+          if (streamerFaceHeight < 38) {
+            setStreamerFaceHeight(45);
+          }
         }
       }
     } catch (e) {
       console.warn('Deteksi facecam gagal, fallback ke preset:', e);
-      setStreamerFaceX(0.10);
-      setStreamerFaceY(0.86);
-      setStreamerFaceZoom(2.4);
+      setStreamerFaceX(0.11);
+      setStreamerFaceY(0.87);
+      setStreamerFaceZoom(3.6);
+      if (streamerFaceHeight < 38) setStreamerFaceHeight(45);
     } finally {
       setIsDetectingFacecam(false);
+    }
+  };
+
+  const handleDetectPodcast = async () => {
+    setIsDetectingPodcast(true);
+    try {
+      const res = await fetch('/api/deteksi-podcast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nama: proyekNama || '', no: activeClip?.id || 1 }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.p1_x !== undefined) setPodcastP1X(Number(data.p1_x.toFixed(3)));
+        if (data.p2_x !== undefined) setPodcastP2X(Number(data.p2_x.toFixed(3)));
+        if (data.zoom) setPodcastZoom(Number(data.zoom.toFixed(2)));
+      }
+    } catch (e) {
+      console.warn('Deteksi podcast gagal, fallback ke preset:', e);
+      setPodcastP1X(0.28);
+      setPodcastP2X(0.72);
+      setPodcastZoom(1.30);
+    } finally {
+      setIsDetectingPodcast(false);
     }
   };
 
@@ -875,6 +1066,16 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
     const vh = siap ? v!.videoHeight : 9;
     const cxAuto = FOKUS_G[focusPoint] ?? 0.5;
 
+    let punchSkala = 1.0;
+    if (zoomKeyphrase) {
+      const curT = hasResults ? currentVideoTime : currentTime;
+      const clipStart = editStartTime || activeClip?.startTime || 0;
+      const relT = curT - clipStart;
+      if ((relT >= 0.2 && relT <= 2.8) || (relT >= 10.0 && relT <= 13.5)) {
+        punchSkala = 1.12;
+      }
+    }
+
     const gb = (
       r: number,
       x: number,
@@ -885,6 +1086,7 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
       cy = 0.5,
       sk = 1
     ) => {
+      const effSk = Math.max(0.08, Math.min(3.0, sk * punchSkala));
       if (!siap) {
         if (
           thumbImgRef.current &&
@@ -897,7 +1099,7 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
             r,
             cx,
             cy,
-            sk
+            effSk
           );
           try {
             ctx.drawImage(thumbImgRef.current, a, b, c, d, x, y, w, h);
@@ -910,7 +1112,7 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
         ctx.fillRect(x, y, w, h);
         return;
       }
-      const [a, b, c, d] = potongG(vw, vh, r, cx, cy, sk);
+      const [a, b, c, d] = potongG(vw, vh, r, cx, cy, effSk);
       try {
         ctx.drawImage(v!, a, b, c, d, x, y, w, h);
       } catch {
@@ -920,8 +1122,41 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
     };
 
     let bar = 0;
-    if (layoutMode === 'split') {
-      let showSplit = podcastPreviewShot === 'split';
+    if (layoutMode === 'podcast_auto') {
+      // Mode Podcast 1 Layar Penuh 9:16 (Auto Ikuti Pembicara Aktif)
+      let spkX = podcastP1X;
+      if (podcastPreviewShot === 'p2') {
+        spkX = podcastP2X;
+      } else if (podcastPreviewShot === 'p1') {
+        spkX = podcastP1X;
+      } else {
+        // 'auto' / 'single': simulasi peralihan kamera pembicara per interval waktu
+        const startT = ((_selectedMoment as any)?.mulai ?? (activeClip as any)?.startTime ?? 0);
+        const relT = Math.max(0, currentTime - startT);
+        const cycle = Math.floor(relT / 3.5);
+        spkX = cycle % 2 === 0 ? podcastP1X : podcastP2X;
+      }
+      const pSk = 1 / Math.max(podcastZoom, 0.5);
+      if (canvasFrameMode === '9:16_letterbox' && canvasRatio !== '9:16') {
+        const r = RASIO_G[canvasRatio] || 9 / 16;
+        const ih = W / r;
+        bar = (H - ih) / 2;
+        if (
+          barBackground === 'buram' &&
+          (siap || (thumbImgRef.current && thumbImgRef.current.complete))
+        ) {
+          ctx.save();
+          ctx.filter = 'blur(10px) brightness(0.85)';
+          gb(9 / 16, -20, -20, W + 40, H + 40, 0.5);
+          ctx.restore();
+        }
+        gb(r, 0, bar, W, ih, spkX, 0.38, pSk);
+      } else {
+        gb(W / H, 0, 0, W, H, spkX, 0.38, pSk);
+      }
+    } else if (layoutMode === 'split') {
+      // Default: mode Split Podcast SELALU menampilkan 2 pembicara secara simultan
+      let showSplit = podcastPreviewShot !== 'single' && podcastPreviewShot !== 'p1' && podcastPreviewShot !== 'p2';
       if (podcastPreviewShot === 'auto') {
         const rentangDua = (activeClip as any)?.podcast_rentang_dua || (_selectedMoment as any)?.podcast_rentang_dua;
         if (Array.isArray(rentangDua) && rentangDua.length > 0) {
@@ -929,18 +1164,41 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
           const relT = currentTime - startT;
           showSplit = rentangDua.some(([s, e]: [number, number]) => relT >= s && relT <= e);
         } else {
-          // Bila data interval belum ada, default pratinjau shot 1 orang solo (9:16 penuh di tengah, tidak terpotong)
-          showSplit = false;
+          showSplit = true; // Default selalu aktifkan 2 layar split
         }
       }
 
       if (!showSplit) {
-        // Mode Shot 1 Orang: 9:16 vertikal PENUH mengikuti fokus pembicara (tengah 50%, tidak terpotong!)
-        const singleX = focusPoint === 'otomatis' ? podcastSingleFocusX : cxAuto;
+        // Mode Preview Solo 1 Orang (P1, P2, atau Solo)
+        let singleX = focusPoint === 'otomatis' ? podcastSingleFocusX : cxAuto;
+        if (podcastPreviewShot === 'p1') singleX = podcastP1X;
+        else if (podcastPreviewShot === 'p2') singleX = podcastP2X;
         const pSk = 1 / Math.max(podcastZoom, 0.5);
         gb(W / H, 0, 0, W, H, singleX, 0.38, pSk);
+      } else if (W > H) {
+        // Mode Horizontal (16:9 Lebar): Split Kiri & Kanan (Side-by-Side Podcast)
+        const divW = 4 * S;
+        const leftWPx = W * 0.5 - divW / 2;
+        const rightWPx = W - leftWPx - divW;
+        const frameR = leftWPx / H;
+        const p1X = podcastSwap ? podcastP2X : podcastP1X;
+        const p2X = podcastSwap ? podcastP1X : podcastP2X;
+        const pSk = 1 / Math.max(podcastZoom, 0.5);
+
+        // Frame kiri (Pembicara 1)
+        gb(frameR, 0, 0, leftWPx, H, p1X, 0.38, pSk);
+
+        // Garis pemisah tengah vertikal cyan
+        const divX = leftWPx;
+        ctx.fillStyle = '#0a0f1d';
+        ctx.fillRect(divX, 0, divW, H);
+        ctx.fillStyle = '#06b6d4';
+        ctx.fillRect(divX + 1 * S, 0, 2 * S, H);
+
+        // Frame kanan (Pembicara 2)
+        gb(frameR, divX + divW, 0, rightWPx, H, p2X, 0.38, pSk);
       } else {
-        // Mode Shot 2 Orang: Split 2 Layar Atas & Bawah
+        // Mode Vertikal 9:16, Kotak 1:1, Klasik 4:3: Split Atas & Bawah
         const splitPct = podcastSplitRatio / 100;
         const divH = 6 * S;
         const topHeightPx = H * splitPct - divH / 2;
@@ -1001,24 +1259,19 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
       // 3. Frame bawah: Gameplay dengan opsi Fit Blur (Utuh 16:9) atau Cover (Pan & Zoom)
       if (gameplayFitMode === 'fit_blur') {
         ctx.save();
-        ctx.filter = 'blur(14px) brightness(0.65)';
+        ctx.filter = 'blur(16px) brightness(0.6)';
         gb(botR, 0, divY + divH, W, botHeightPx, 0.5, 0.5, 1.0);
         ctx.restore();
 
         const baseH = W / (16 / 9);
-        if (gameplayZoom >= 1.0) {
-          // Zoom in & pan aksi game (bisa potong banner/webcam bawah)
-          const gameH = baseH;
-          const gameY = divY + divH + (botHeightPx - gameH) / 2;
-          gb(16 / 9, 0, gameY, W, gameH, gameplayFocusX, gameplayFocusY, 1.0 / gameplayZoom);
-        } else {
-          // Zoom out (perkecil gameplay 16:9, lebih banyak padding blur)
-          const gw = W * gameplayZoom;
-          const gh = baseH * gameplayZoom;
-          const gx = (W - gw) * gameplayFocusX;
-          const gy = divY + divH + (botHeightPx - gh) * gameplayFocusY;
-          gb(16 / 9, gx, gy, gw, gh, 0.5, 0.5, 1.0);
-        }
+        const effectiveZoom = Math.max(0.6, gameplayZoom);
+        const gameH = baseH * effectiveZoom;
+        const gameW = W * effectiveZoom;
+        const extraY = botHeightPx - gameH;
+        const gameY = divY + divH + (extraY > 0 ? extraY * gameplayFocusY : (botHeightPx - gameH) / 2);
+        const extraX = W - gameW;
+        const gameX = extraX > 0 ? extraX * gameplayFocusX : (W - gameW) / 2;
+        gb(16 / 9, gameX, gameY, gameW, gameH, gameplayFocusX, gameplayFocusY, 1.0 / effectiveZoom);
       } else {
         gb(botR, 0, divY + divH, W, botHeightPx, gameplayFocusX, gameplayFocusY, gpSk);
       }
@@ -1069,22 +1322,24 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
       ctx.beginPath();
       ctx.arc(px + 16 * S, py + 16 * S, 4 * S, 0, Math.PI * 2);
       ctx.fill();
-    } else if (canvasRatio === '9:16') {
-      gb(9 / 16, 0, 0, W, H);
     } else {
-      const r = RASIO_G[canvasRatio] || 9 / 16;
-      const ih = W / r;
-      bar = (H - ih) / 2;
-      if (
-        barBackground === 'buram' &&
-        (siap || (thumbImgRef.current && thumbImgRef.current.complete))
-      ) {
-        ctx.save();
-        ctx.filter = 'blur(10px) brightness(0.85)';
-        gb(9 / 16, -20, -20, W + 40, H + 40, 0.5);
-        ctx.restore();
+      if (canvasFrameMode === '9:16_letterbox' && canvasRatio !== '9:16') {
+        const r = RASIO_G[canvasRatio] || 9 / 16;
+        const ih = W / r;
+        bar = (H - ih) / 2;
+        if (
+          barBackground === 'buram' &&
+          (siap || (thumbImgRef.current && thumbImgRef.current.complete))
+        ) {
+          ctx.save();
+          ctx.filter = 'blur(10px) brightness(0.85)';
+          gb(9 / 16, -20, -20, W + 40, H + 40, 0.5);
+          ctx.restore();
+        }
+        gb(r, 0, bar, W, ih);
+      } else {
+        gb(W / H, 0, 0, W, H, cxAuto, 0.5);
       }
-      gb(r, 0, bar, W, ih);
     }
 
     const k = activeClip;
@@ -1108,7 +1363,8 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
       ctx.font = `${P.mode === 'tebal' ? 'bold ' : tebal}${ukb}px "${
         P.mode === 'tebal' ? 'Montserrat' : selectedFont
       }"`;
-      const rawTeks = (bannerPrefix + (k.title || '') + bannerSuffix).toUpperCase();
+      const mainTeks = customHooksByClipRef.current[String(k.id)] ?? (k.title || '');
+      const rawTeks = getFullHookText(mainTeks, bannerPrefix, bannerSuffix).toUpperCase();
       const teks = sensorKataKasar ? sensorTeksCanvas(rawTeks) : rawTeks;
       const barAtas = bar / S;
       const mv = (barAtas > 160 ? Math.max(70, barAtas / 2 - 70) : 150) * S;
@@ -1134,13 +1390,6 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
     }
 
     if (hasSubtitles) {
-      const contoh =
-        {
-          2: ['contoh', 'klip'],
-          3: ['ini', 'contoh', 'klip'],
-          4: ['ini', 'contoh', 'klip', 'viral'],
-        }[P.per] || ['ini', 'contoh', 'subtitle', 'klip', 'viral'];
-
       const hurufFn = (t: string) => {
         const raw =
           letterCase === 'ABC'
@@ -1150,9 +1399,59 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
             : t;
         return sensorKataKasar ? sensorTeksCanvas(raw) : raw;
       };
+
+      const curT = hasResults ? currentVideoTime : currentTime;
+      const chunkSize = P.per || 3;
+
+      let contoh: string[] = ['ini', 'contoh', 'klip'];
+      let aktifI = 1;
+
+      // 1. Check real transcript from backend first
+      let foundInTranscript = false;
+      if (projectTranscript && projectTranscript.length > 0) {
+        const seg = projectTranscript.find((s) => curT >= s.mulai - 0.15 && curT <= s.selesai + 0.25);
+        if (seg && seg.kata && seg.kata.length > 0) {
+          let wIdx = seg.kata.findIndex((k) => curT >= k.mulai && curT <= k.selesai);
+          if (wIdx === -1) {
+            wIdx = seg.kata.findIndex((k) => curT < k.mulai);
+            if (wIdx === -1) wIdx = seg.kata.length - 1;
+            else wIdx = Math.max(0, wIdx - 1);
+          }
+          const chunkStart = Math.floor(wIdx / chunkSize) * chunkSize;
+          const chunk = seg.kata.slice(chunkStart, chunkStart + chunkSize);
+          contoh = chunk.map((c) => c.teks);
+          aktifI = wIdx - chunkStart;
+          foundInTranscript = true;
+        } else if (seg && seg.teks) {
+          const sWords = seg.teks.split(/\s+/).filter(Boolean);
+          const segDur = Math.max(0.5, seg.selesai - seg.mulai);
+          const relT = Math.max(0, Math.min(segDur, curT - seg.mulai));
+          const wIdx = Math.min(sWords.length - 1, Math.floor((relT / segDur) * sWords.length));
+          const chunkStart = Math.floor(wIdx / chunkSize) * chunkSize;
+          contoh = sWords.slice(chunkStart, chunkStart + chunkSize);
+          aktifI = wIdx - chunkStart;
+          foundInTranscript = true;
+        }
+      }
+
+      // 2. Fallback: dynamic progress across activeClip.quote
+      if (!foundInTranscript && activeClip?.quote) {
+        const rawWords = activeClip.quote.replace(/[“”,.?!]/g, '').split(/\s+/).filter(Boolean);
+        if (rawWords.length > 0) {
+          const clipStart = editStartTime || activeClip.startTime || 0;
+          const clipEnd = editEndTime || activeClip.endTime || (clipStart + 30);
+          const clipDur = Math.max(1, clipEnd - clipStart);
+          const relT = Math.max(0, Math.min(clipDur, curT - clipStart));
+          const progress = relT / clipDur;
+          const wIdx = Math.min(rawWords.length - 1, Math.floor(progress * rawWords.length));
+          const chunkStart = Math.floor(wIdx / chunkSize) * chunkSize;
+          contoh = rawWords.slice(chunkStart, chunkStart + chunkSize);
+          aktifI = wIdx - chunkStart;
+        }
+      }
+
       const kata = contoh.map(hurufFn);
-      const aktifI = 1;
-      const kunciI = kata.length - 1;
+      const kunciI = Math.max(0, kata.length - 1);
       const fnt = (i: number) =>
         `${i === aktifI && P.mode === 'tebal' ? 'bold ' : tebal}${
           uk *
@@ -1180,15 +1479,21 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
       ctx.textAlign = 'left';
       kata.forEach((t, i) => {
         ctx.font = fnt(i);
+        const cleanWord = t.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const customStyle = customWordStyles[cleanWord];
+
+        // Multi-color sentiment or custom color
         let warna = '#fff';
-        if (P.mode === 'warna' && i === aktifI) warna = P.warna;
-        if ((P.mode === 'pop' || P.mode === 'komik') && i === kunciI)
-          warna = P.warna;
-        if (P.mode === 'terbaca') warna = i === aktifI ? '#fff' : P.warna;
-        if (P.mode === 'karaoke') warna = i <= aktifI ? P.warna : '#fff';
-        if (P.mode === 'kotak' && i === aktifI) {
+        const baseColor = customStyle?.color || getSentimentColor(t, P.warna || highlightColor);
+
+        if (P.mode === 'warna' && i === aktifI) warna = baseColor;
+        if ((P.mode === 'pop' || P.mode === 'komik') && (i === kunciI || i === aktifI))
+          warna = baseColor;
+        if (P.mode === 'terbaca') warna = i === aktifI ? '#fff' : baseColor;
+        if (P.mode === 'karaoke') warna = i <= aktifI ? baseColor : '#fff';
+        if (P.mode === 'kotak' && (i === aktifI || i === kunciI)) {
           const lw = ctx.measureText(t).width;
-          ctx.fillStyle = P.warna;
+          ctx.fillStyle = baseColor;
           ctx.beginPath();
           ctx.roundRect(x - 10 * S, y - uk * 0.95, lw + 20 * S, uk * 1.25, 10 * S);
           ctx.fill();
@@ -1207,17 +1512,54 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
         ctx.fillStyle = warna;
         ctx.fillText(t, x, y);
         ctx.shadowColor = 'transparent';
+
+        // Emoji Otomatis melayang tepat di atas kata aktif / ber-emoji
+        const emojiChar = customStyle?.emoji || (autoEmoji ? getEmojiForWord(t) : null);
+        if (emojiChar && (i === aktifI || i === kunciI || customStyle?.emoji)) {
+          ctx.save();
+          const bounceY = (i === aktifI) ? -6 * S : -2 * S;
+          ctx.font = `${uk * 0.95}px "Segoe UI Emoji", "Apple Color Emoji", sans-serif`;
+          ctx.textAlign = 'center';
+          const lw = ctx.measureText(t).width;
+          ctx.fillText(emojiChar, x + lw / 2, y - uk * 1.15 + bounceY);
+          ctx.restore();
+        }
+
         x += lebar[i];
       });
       ctx.textAlign = 'center';
     }
 
     if (bottomProgress) {
-      ctx.fillStyle = P.warna;
-      ctx.fillRect(0, H - 10 * S, W * 0.42, 10 * S);
+      const clipStart = editStartTime || activeClip?.startTime || 0;
+      const clipEnd = editEndTime || activeClip?.endTime || 30;
+      const curT = hasResults ? currentVideoTime : currentTime;
+      const prog = Math.max(0, Math.min(1, (curT - clipStart) / Math.max(0.1, clipEnd - clipStart)));
+      const barH = progressBarThickness * S;
+
+      if (progressBarColor === 'pelangi') {
+        const grad = ctx.createLinearGradient(0, H - barH, W, H);
+        grad.addColorStop(0, '#00F5FF');
+        grad.addColorStop(0.33, '#3DFF8A');
+        grad.addColorStop(0.66, '#FFD400');
+        grad.addColorStop(1, '#FF3388');
+        ctx.fillStyle = grad;
+      } else if (progressBarColor === 'hijau') {
+        ctx.fillStyle = '#3DFF8A';
+      } else if (progressBarColor === 'kuning') {
+        ctx.fillStyle = '#FFD400';
+      } else {
+        ctx.fillStyle = '#00F5FF'; // CalClip signature neon cyan
+      }
+
+      ctx.shadowColor = typeof ctx.fillStyle === 'string' ? ctx.fillStyle : '#00F5FF';
+      ctx.shadowBlur = 8 * S;
+      ctx.fillRect(0, H - barH, W * prog, barH);
+      ctx.shadowColor = 'transparent';
     }
   }, [
     canvasRatio,
+    canvasFrameMode,
     barBackground,
     focusPoint,
     layoutMode,
@@ -1248,10 +1590,17 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
     podcastSwap,
     podcastSplitRatio,
     sensorKataKasar,
+    customHooksByClip,
+    progressBarColor,
+    progressBarThickness,
+    highlightColor,
+    customWordStyles,
+    autoEmoji,
+    zoomKeyphrase,
   ]);
 
   useEffect(() => {
-    if (!isAturGayaOpen) return;
+    if (!hasResults && !isAturGayaOpen) return;
     let animId: number;
     const loop = () => {
       gambarStudioKanvas();
@@ -1261,15 +1610,15 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
     return () => {
       cancelAnimationFrame(animId);
     };
-  }, [isAturGayaOpen, gambarStudioKanvas]);
+  }, [hasResults, isAturGayaOpen, gambarStudioKanvas]);
 
   useEffect(() => {
     if (typeof document !== 'undefined' && 'fonts' in document) {
       document.fonts.ready.then(() => {
-        if (isAturGayaOpen) gambarStudioKanvas();
+        if (hasResults || isAturGayaOpen) gambarStudioKanvas();
       });
     }
-  }, [isAturGayaOpen, gambarStudioKanvas]);
+  }, [hasResults, isAturGayaOpen, gambarStudioKanvas]);
 
   // 3-Step Rendering Pipeline State matching screenshots cf55f0ef.jpg & 89752451.jpg
   interface RenderPipelineStep {
@@ -1352,6 +1701,9 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
       if (energy && Array.isArray(energy)) {
         setWaveformEnergy(energy);
       }
+      if (data.transkrip && Array.isArray(data.transkrip)) {
+        setProjectTranscript(data.transkrip);
+      }
       if (data.klip && Array.isArray(data.klip) && data.klip.length > 0) {
         const mappedClips: DetailedClip[] = data.klip.map((k: any, idx: number) => ({
           id: k.no || idx + 1,
@@ -1369,13 +1721,35 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
           file: k.file,
         }));
         setClips(mappedClips);
-        setActiveClipId(mappedClips[0].id);
+        const first = mappedClips[0];
+        setActiveClipId(first.id);
+        const s = first.startTime || 0;
+        const e = first.endTime || (s + 30);
+        activeClipRangeRef.current = { id: first.id, start: s, end: e };
+        setEditStartTime(s);
+        setEditEndTime(e);
+        setCurrentVideoTime(s);
+        onSeek(s);
+        if (videoElemRef.current) {
+          videoElemRef.current.currentTime = s;
+        }
         const rendered = mappedClips.filter((c) => c.file).length;
         setRenderedCount(rendered);
       } else {
         setClips(DEFAULT_DETAILED_CLIPS);
-        setActiveClipId(DEFAULT_DETAILED_CLIPS[0].id);
-        setRenderedCount(5);
+        const first = DEFAULT_DETAILED_CLIPS[0];
+        setActiveClipId(first.id);
+        const s = first.startTime || 0;
+        const e = first.endTime || 30;
+        activeClipRangeRef.current = { id: first.id, start: s, end: e };
+        setEditStartTime(s);
+        setEditEndTime(e);
+        setCurrentVideoTime(s);
+        onSeek(s);
+        if (videoElemRef.current) {
+          videoElemRef.current.currentTime = s;
+        }
+        setRenderedCount(0);
       }
       setHasResults(true);
       setPipelineState('completed');
@@ -1618,15 +1992,40 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
     }
   };
 
-  const handleStartRender = async () => {
+  const handleDownloadClip = async (clip: DetailedClip) => {
+    const targetProj = proyekNama || 'proyek-aktif';
+    const fileName = clip.file || `klip-0${clip.rankNum || clip.id}.mp4`;
+    const cleanFile = fileName.replace(/\.mp4$/i, '');
+    const downloadName = `CalClip-${clip.rankNum || clip.id}.mp4`;
+    const downloadUrl = `/stream/klip/${targetProj}/${cleanFile}.mp4?unduh=1&nama=${encodeURIComponent(downloadName)}`;
+
+    try {
+      const check = await fetch(downloadUrl, { method: 'HEAD' });
+      if (!check.ok) {
+        handleStartRender(clip);
+        return;
+      }
+    } catch {
+      // offline fallback
+    }
+
+    const a = document.createElement('a');
+    a.href = downloadUrl;
+    a.download = downloadName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
+  const handleStartRender = async (singleClip?: DetailedClip) => {
     if (isRenderingPipeline) return;
 
     setIsAturGayaOpen(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
 
-    const checkedClips = clips.filter((c) => c.isChecked);
-    const checkedNos = checkedClips.map((c) => c.rankNum || c.id);
-    const totalClips = checkedClips.length || 5;
+    const targetClips = singleClip ? [singleClip] : clips.filter((c) => c.isChecked);
+    const targetNos = targetClips.map((c) => c.rankNum || c.id);
+    const totalClips = targetNos.length || 1;
     const targetProjectNama = proyekNama || 'proyek-aktif';
 
     try {
@@ -1635,9 +2034,10 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           nama: targetProjectNama,
-          pilih: checkedNos,
+          pilih: targetNos,
           gaya: {
             rasio: canvasRatio,
+            kanvas_mode: canvasFrameMode,
             latar: barBackground,
             fokus: focusPoint === 'otomatis' ? 'auto' : focusPoint,
             layout: layoutMode,
@@ -1669,15 +2069,30 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
             podcast_split_ratio: podcastSplitRatio,
             podcast_auto_transition: podcastAutoTransition,
             podcast_single_focus_x: podcastSingleFocusX,
+            warna_sorot: highlightColor,
+            kata_kustom: customWordStyles,
+            progress_bar: bottomProgress,
+            warna_progress: progressBarColor,
+            tebal_progress: progressBarThickness,
+            sfx_mikro: autoMicroSfx,
+            audio_ducking: autoAudioDucking,
+            zoom_kata_kunci: zoomKeyphrase,
           },
           klip_edit: Object.fromEntries(
-            clips.map((c) => [
+            targetClips.map((c) => [
               String(c.rankNum || c.id),
-              { mulai: c.startTime, selesai: c.endTime, judul: c.title },
+              {
+                mulai: c.startTime,
+                selesai: c.endTime,
+                judul: customHooksByClip[String(c.id)] ?? c.title,
+              },
             ])
           ),
           judul: Object.fromEntries(
-            clips.map((c) => [String(c.rankNum || c.id), c.title])
+            targetClips.map((c) => [
+              String(c.rankNum || c.id),
+              customHooksByClip[String(c.id)] ?? c.title,
+            ])
           ),
         }),
       });
@@ -1691,30 +2106,35 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
       // Offline fallback
     }
 
-    // Realistic fallback simulation (realistic pacing: ~70 seconds across checked clips)
+    // Realistic fallback simulation (realistic pacing: ~14 seconds per clip)
     setIsRenderingPipeline(true);
     setRenderProgressPercent(10);
     setRenderElapsedSec(0);
 
     setRenderSteps([
       { id: 1, label: '01 • SIAPKAN', status: 'Beres' },
-      { id: 2, label: `02 • RENDER (1/${totalClips})`, status: 'Berjalan...' },
+      { id: 2, label: `02 • RENDER (${totalClips === 1 ? `Klip #${targetNos[0]}` : `1/${totalClips}`})`, status: 'Berjalan...' },
       { id: 3, label: '03 • SELESAI', status: 'Menunggu' },
     ]);
 
     setRenderLogLines([
-      `$ python.exe klip.py --render --keluar C:\\Users\\Asus ROG\\CalClip\\klip\\${targetProjectNama} --pilih ${checkedNos.join(',')} --gaya gaya-permintaan.json`,
+      `$ python.exe klip.py --render --keluar C:\\Users\\Asus ROG\\CalClip\\klip\\${targetProjectNama} --pilih ${targetNos.join(',')} --gaya gaya-permintaan.json`,
       `• Menyiapkan konfigurasi render 1080x1920 30fps (Kanvas: ${canvasRatio}, Latar: ${barBackground})...`,
       `• Mengurai subtitle kinetik font: ${selectedFont}, layout: ${layoutMode}...`,
-      `• Render 1/${totalClips}: ${checkedClips[0]?.title || 'Klip 1'} (${formatSec(checkedClips[0]?.startTime || 0)} - ${formatSec(checkedClips[0]?.endTime || 30)})...`,
+      `• Render ${totalClips === 1 ? `Klip #${targetNos[0]}` : `1/${totalClips}`}: ${targetClips[0]?.title || 'Klip ' + targetNos[0]} (${formatSec(targetClips[0]?.startTime || 0)} - ${formatSec(targetClips[0]?.endTime || 30)})...`,
     ]);
 
     if (onAnalysisStateChange) {
-      onAnalysisStateChange(true, '00:01', `Render 1/${totalClips}...`, 'Merender klip');
+      onAnalysisStateChange(
+        true,
+        '00:01',
+        totalClips === 1 ? `Render klip #${targetNos[0]}...` : `Render 1/${totalClips}...`,
+        'Merender klip'
+      );
     }
 
     const renderStartTime = Date.now();
-    const totalDurationSec = totalClips * 14; // ~14s per clip => ~70s total
+    const totalDurationSec = totalClips * 14;
     if (renderElapsedTimerRef.current) clearInterval(renderElapsedTimerRef.current);
 
     renderElapsedTimerRef.current = setInterval(() => {
@@ -1722,13 +2142,13 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
       setRenderElapsedSec(elapsed);
 
       const currentClipIdx = Math.min(totalClips - 1, Math.floor(elapsed / 14));
-      const currentClipObj = checkedClips[currentClipIdx] || checkedClips[0];
+      const currentClipObj = targetClips[currentClipIdx] || targetClips[0];
       const stepProg = Math.min(99, Math.round((elapsed / totalDurationSec) * 100));
       setRenderProgressPercent(stepProg);
 
       setRenderSteps([
         { id: 1, label: '01 • SIAPKAN', status: 'Beres' },
-        { id: 2, label: `02 • RENDER (${currentClipIdx + 1}/${totalClips})`, status: 'Berjalan...' },
+        { id: 2, label: `02 • RENDER (${totalClips === 1 ? `Klip #${targetNos[0]}` : `${currentClipIdx + 1}/${totalClips}`})`, status: 'Berjalan...' },
         { id: 3, label: '03 • SELESAI', status: 'Menunggu' },
       ]);
 
@@ -1736,7 +2156,7 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
         onAnalysisStateChange(
           true,
           formatSec(elapsed),
-          `Render ${currentClipIdx + 1}/${totalClips}...`,
+          totalClips === 1 ? `Render klip #${targetNos[0]}...` : `Render ${currentClipIdx + 1}/${totalClips}...`,
           'Merender klip'
         );
       }
@@ -1744,10 +2164,9 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
       // Log progress simulation
       const secInClip = elapsed % 14;
       if (secInClip === 0 && elapsed > 0) {
-        // Finished previous clip, start next
         setRenderLogLines((prev) => [
           ...prev,
-          `• Render ${currentClipIdx}/${totalClips} selesai: klip-0${checkedClips[currentClipIdx - 1]?.rankNum || currentClipIdx}.mp4 (${(8.5 + Math.random() * 2).toFixed(1)} MB)`,
+          `• Render ${currentClipIdx}/${totalClips} selesai: klip-0${targetClips[currentClipIdx - 1]?.rankNum || currentClipIdx}.mp4 (${(8.5 + Math.random() * 2).toFixed(1)} MB)`,
           `• Render ${currentClipIdx + 1}/${totalClips}: ${currentClipObj.title} (${formatSec(currentClipObj.startTime)} - ${formatSec(currentClipObj.endTime)})...`,
         ]);
       } else if (secInClip % 4 === 0) {
@@ -1768,21 +2187,20 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
           { id: 2, label: '02 • RENDER', status: 'Beres' },
           { id: 3, label: '03 • SELESAI', status: 'Beres' },
         ]);
-        setRenderedCount(totalClips);
-        notifyRenderComplete(totalClips);
 
-        // Update clips with rendered files!
         setClips((prev) =>
-          prev.map((c) => ({
-            ...c,
-            file: c.file || `klip-0${c.rankNum || c.id}.mp4`,
-          }))
+          prev.map((c) => {
+            const isTarget = targetNos.includes(c.rankNum || c.id);
+            return isTarget ? { ...c, file: c.file || `klip-0${c.rankNum || c.id}.mp4` } : c;
+          })
         );
+        setRenderedCount((prev) => Math.min(clips.length, prev + totalClips));
+        notifyRenderComplete(totalClips);
 
         setRenderLogLines((prev) => [
           ...prev,
-          `• Render ${totalClips}/${totalClips} selesai: klip-0${checkedClips[totalClips - 1]?.rankNum || totalClips}.mp4 (9.8 MB)`,
-          `• Selesai. Semua ${totalClips} klip berhasil dirender ke MP4 1080x1920.`,
+          `• Render ${totalClips === 1 ? `Klip #${targetNos[0]}` : `${totalClips} klip`} selesai: klip-0${targetNos[0]}.mp4 (9.8 MB)`,
+          `• Selesai. Klip terpilih berhasil dirender ke MP4 1080x1920.`,
           `• Berkas tersimpan di C:\\Users\\Asus ROG\\CalClip\\klip\\${targetProjectNama}\\`,
         ]);
 
@@ -1909,6 +2327,7 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
           sumber: rawUrl,
           jumlah: clipCount,
           durasi: Number(clipDuration),
+          bahasa: selectedLanguage,
           ai: momentSelector,
           model: transcriptAccuracy === 'cepat' ? 'tiny' : transcriptAccuracy === 'akurat' ? 'medium' : 'small',
           arahan: customPrompt,
@@ -2132,7 +2551,18 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
               const simProj = 'sim-' + Date.now();
               setProyekNama(simProj);
               setClips(dynamicClips);
-              setActiveClipId(dynamicClips[0].id);
+              const first = dynamicClips[0];
+              setActiveClipId(first.id);
+              const s = first.startTime || 0;
+              const e = first.endTime || (s + 30);
+              activeClipRangeRef.current = { id: first.id, start: s, end: e };
+              setEditStartTime(s);
+              setEditEndTime(e);
+              setCurrentVideoTime(s);
+              onSeek(s);
+              if (videoElemRef.current) {
+                videoElemRef.current.currentTime = s;
+              }
               setRenderedCount(0);
               setLogLines((prev) => [
                 ...prev,
@@ -2166,14 +2596,228 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
   };
 
   const selectAndPlayClip = (clip: DetailedClip) => {
+    const start = clip.startTime || 0;
+    const end = clip.endTime || (start + (clip.durationSec || 30));
+    activeClipRangeRef.current = { id: clip.id, start, end };
     setActiveClipId(clip.id);
-    onSeek(clip.startTime);
+    setEditStartTime(start);
+    setEditEndTime(end);
+    setCurrentVideoTime(start);
+    onSeek(start);
     if (videoElemRef.current) {
-      videoElemRef.current.currentTime = clip.startTime;
-      videoElemRef.current.play().catch(() => {});
+      const v = videoElemRef.current;
+      v.currentTime = start;
+      v.play()
+        .then(() => setIsVideoPlaying(true))
+        .catch((err) => {
+          console.warn('Playback deferred:', err);
+          setIsVideoPlaying(false);
+        });
     }
-    if (!isPlaying) onTogglePlay();
   };
+
+  const togglePlayPause = useCallback(() => {
+    const v = videoElemRef.current;
+    if (!v) return;
+    const range = activeClipRangeRef.current;
+    if (v.paused) {
+      if (v.currentTime < range.start - 0.2 || v.currentTime >= range.end) {
+        v.currentTime = range.start;
+        setCurrentVideoTime(range.start);
+        onSeek(range.start);
+      }
+      v.play()
+        .then(() => setIsVideoPlaying(true))
+        .catch((err) => {
+          console.warn('Play error:', err);
+          setIsVideoPlaying(false);
+        });
+    } else {
+      v.pause();
+      setIsVideoPlaying(false);
+    }
+  }, [onSeek]);
+
+  // Split clip at playhead (Ctrl+B)
+  const handleSplitClipAtPlayhead = useCallback(() => {
+    if (!activeClip) return;
+    const curT = hasResults ? (currentVideoTime || activeClip.startTime) : currentTime;
+    const minT = (editStartTime || activeClip.startTime) + 0.8;
+    const maxT = (editEndTime || activeClip.endTime) - 0.8;
+    if (curT < minT || curT > maxT) {
+      return; // Must have at least buffer
+    }
+    const splitT = Math.round(curT * 10) / 10;
+    const origId = activeClip.id;
+    const newId = Date.now();
+    const baseTitle = activeClip.title.replace(/\s*\(Bagian\s*\d+\)$/i, '');
+
+    const clipA: DetailedClip = {
+      ...activeClip,
+      endTime: splitT,
+      durationSec: Math.max(1, Math.round(splitT - activeClip.startTime)),
+      title: `${baseTitle} (Bagian 1)`,
+    };
+
+    const clipB: DetailedClip = {
+      ...activeClip,
+      id: newId,
+      startTime: splitT,
+      durationSec: Math.max(1, Math.round(activeClip.endTime - splitT)),
+      title: `${baseTitle} (Bagian 2)`,
+    };
+
+    setClips((prev) => {
+      const idx = prev.findIndex((c) => c.id === origId);
+      if (idx === -1) return prev;
+      const next = [...prev];
+      next.splice(idx, 1, clipA, clipB);
+      return next.map((c, i) => ({ ...c, rankNum: i + 1 }));
+    });
+
+    setEditEndTime(splitT);
+  }, [activeClip, currentVideoTime, currentTime, editStartTime, editEndTime, hasResults]);
+
+  // Delete active clip (Buang bagian)
+  const handleDeleteActiveClip = useCallback(() => {
+    if (!activeClip) return;
+    if (clips.length <= 1) {
+      setEditStartTime(activeClip.startTime);
+      setEditEndTime(activeClip.endTime);
+      return;
+    }
+    const activeIdx = clips.findIndex((c) => c.id === activeClip.id);
+    const remaining = clips.filter((c) => c.id !== activeClip.id);
+    const reRanked = remaining.map((c, i) => ({ ...c, rankNum: i + 1 }));
+    setClips(reRanked);
+    const nextClip = reRanked[Math.min(activeIdx, reRanked.length - 1)];
+    if (nextClip) {
+      selectAndPlayClip(nextClip);
+    }
+  }, [activeClip, clips]);
+
+  // Filmstrip scrubbing & trimming handlers
+  const handleFilmstripScrub = useCallback((clientX: number) => {
+    const container = filmstripContainerRef.current;
+    if (!container || !activeClip) return;
+    const rect = container.getBoundingClientRect();
+    const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    const clipSpan = Math.max(1, (activeClip.endTime || 30) - (activeClip.startTime || 0));
+    const targetSec = (activeClip.startTime || 0) + ratio * clipSpan;
+    if (videoElemRef.current) {
+      videoElemRef.current.currentTime = targetSec;
+    }
+    setCurrentVideoTime(targetSec);
+    onSeek(targetSec);
+  }, [activeClip, onSeek]);
+
+  const handleLeftHandleDrag = useCallback((clientX: number) => {
+    const container = filmstripContainerRef.current;
+    if (!container || !activeClip) return;
+    const rect = container.getBoundingClientRect();
+    const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    const baseStart = activeClip.startTime || 0;
+    const baseEnd = activeClip.endTime || 30;
+    const clipSpan = Math.max(1, baseEnd - baseStart);
+    const rawSec = baseStart + ratio * clipSpan;
+    const newStart = Math.max(baseStart, Math.min(editEndTime - 1, Math.round(rawSec * 10) / 10));
+    setEditStartTime(newStart);
+    activeClipRangeRef.current.start = newStart;
+    if (videoElemRef.current) {
+      videoElemRef.current.currentTime = newStart;
+    }
+    setCurrentVideoTime(newStart);
+    onSeek(newStart);
+  }, [activeClip, editEndTime, onSeek]);
+
+  const handleRightHandleDrag = useCallback((clientX: number) => {
+    const container = filmstripContainerRef.current;
+    if (!container || !activeClip) return;
+    const rect = container.getBoundingClientRect();
+    const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    const baseStart = activeClip.startTime || 0;
+    const baseEnd = activeClip.endTime || 30;
+    const clipSpan = Math.max(1, baseEnd - baseStart);
+    const rawSec = baseStart + ratio * clipSpan;
+    const newEnd = Math.min(baseEnd, Math.max(editStartTime + 1, Math.round(rawSec * 10) / 10));
+    setEditEndTime(newEnd);
+    activeClipRangeRef.current.end = newEnd;
+    if (videoElemRef.current) {
+      videoElemRef.current.currentTime = newEnd;
+    }
+    setCurrentVideoTime(newEnd);
+    onSeek(newEnd);
+  }, [activeClip, editStartTime, onSeek]);
+
+  // Global mouse listeners for dragging filmstrip handles and scrubber
+  useEffect(() => {
+    if (!isScrubbingFilmstrip && !isDraggingLeftHandle && !isDraggingRightHandle) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (isScrubbingFilmstrip) {
+        handleFilmstripScrub(e.clientX);
+      } else if (isDraggingLeftHandle) {
+        handleLeftHandleDrag(e.clientX);
+      } else if (isDraggingRightHandle) {
+        handleRightHandleDrag(e.clientX);
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsScrubbingFilmstrip(false);
+      setIsDraggingLeftHandle(false);
+      setIsDraggingRightHandle(false);
+      // Auto-save trim to clips list
+      if (activeClip) {
+        setClips((prev) =>
+          prev.map((c) =>
+            c.id === activeClip.id
+              ? {
+                  ...c,
+                  startTime: editStartTime,
+                  endTime: editEndTime,
+                  durationSec: Math.max(1, Math.round(editEndTime - editStartTime)),
+                }
+              : c
+          )
+        );
+      }
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [
+    isScrubbingFilmstrip,
+    isDraggingLeftHandle,
+    isDraggingRightHandle,
+    handleFilmstripScrub,
+    handleLeftHandleDrag,
+    handleRightHandleDrag,
+    activeClip,
+    editStartTime,
+    editEndTime,
+  ]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
+      const isInput = tag === 'input' || tag === 'textarea' || (e.target as HTMLElement)?.isContentEditable;
+
+      if (e.code === 'Space' && !isInput) {
+        e.preventDefault();
+        togglePlayPause();
+      } else if ((e.ctrlKey || e.metaKey) && (e.key === 'b' || e.key === 'B') && !isInput) {
+        e.preventDefault();
+        handleSplitClipAtPlayhead();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [togglePlayPause, handleSplitClipAtPlayhead]);
 
   return (
     <div className="flex-1 min-h-0 p-4 sm:p-6 lg:p-7 overflow-y-auto bg-[#07090f] text-[#eef1f7]">
@@ -2362,7 +3006,7 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
               {/* Atur Klip Card */}
               <div className="rounded-[22px] p-4 sm:p-5 bg-[#111725] border border-[#2b3550] space-y-3">
                 <div className="flex items-center gap-2 text-[14.5px] sm:text-[15px] font-semibold text-[#eef1f7]">
-                  <span className="w-2 h-2 rounded-full bg-amber-400" />
+                  <span className="w-2 h-2 rounded-full bg-cyan-400" />
                   <span>Atur klip</span>
                 </div>
 
@@ -2442,6 +3086,33 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
 
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between text-[12px] sm:text-[12.5px] text-[#a3acc1]">
+                    <span>Bahasa video & subtitle</span>
+                    <span className="text-[10.5px] sm:text-[11px] text-cyan-400 font-mono">Whisper AI</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {[
+                      { id: 'auto', label: 'Deteksi Otomatis' },
+                      { id: 'id', label: 'Indonesia' },
+                      { id: 'en', label: 'English' },
+                    ].map((lang) => (
+                      <button
+                        key={lang.id}
+                        type="button"
+                        onClick={() => setSelectedLanguage(lang.id)}
+                        className={`text-center font-mono text-[11px] sm:text-[12px] rounded-full min-h-[36px] sm:min-h-[38px] px-2 transition-all truncate ${
+                          selectedLanguage === lang.id
+                            ? 'bg-cyan-400 text-[#031418] font-bold border border-cyan-400 shadow-sm'
+                            : 'border border-[#2b3550] text-[#a3acc1] hover:text-[#eef1f7] hover:border-[#8590aa] bg-transparent'
+                        }`}
+                      >
+                        {lang.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-[12px] sm:text-[12.5px] text-[#a3acc1]">
                     <span>Sumber subtitle</span>
                     <span className="text-[10.5px] sm:text-[11px] text-[#8590aa] font-mono">.srt sendiri = lewati transkripsi</span>
                   </div>
@@ -2472,7 +3143,7 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
         {/* ============================================================== */}
         {/* 2. THE 5-STEP PIPELINE STEPPER CARD (Screenshot 8450cc9e.jpg)   */}
         {/* ============================================================== */}
-        {(pipelineState === 'running' || pipelineState === 'completed') && (
+        {(pipelineState === 'running' || isRenderingPipeline || (!hasResults && pipelineState === 'completed')) && (
           <div className="rounded-[22px] p-5 sm:p-[22px] bg-[#111725] border border-[#2b3550] space-y-3.5 shadow-xl animate-fadeIn">
             {hasResults && (
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-[#1f2738]">
@@ -2590,359 +3261,305 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
         )}
 
       {/* ============================================================== */}
-      {/* 3. FULL STUDIO MALIKI RESULTS WORKSPACE (Screenshots 1-6)       */}
+      {/* 3. FULL CAPCUT / KLIP AI NLE STUDIO WORKSPACE                  */}
       {/* ============================================================== */}
       {hasResults && (
-        <div className="space-y-8 animate-fadeIn">
-          {/* Status Chips Bar matching 7c0dfec5.jpg */}
-          <div className="flex flex-wrap items-center justify-between gap-3 text-xs font-mono">
-            <div className="flex items-center gap-2">
-              <span className="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-300">
-                AI: lokal
+        <div className="w-full space-y-3 animate-fadeIn pb-10 select-none">
+          {/* Hidden HTML5 Video element feeding real-time frames into canvas */}
+          <video
+            ref={videoElemRef}
+            src={getStreamUrl(proyekNama) || sourceVideoUrl || undefined}
+            poster={thumbnailUrl}
+            playsInline
+            preload="auto"
+            crossOrigin="anonymous"
+            className="fixed -top-[9999px] -left-[9999px] opacity-0 pointer-events-none"
+            onLoadedMetadata={(e) => {
+              const range = activeClipRangeRef.current;
+              if (range && range.start > 0) {
+                e.currentTarget.currentTime = range.start;
+                setCurrentVideoTime(range.start);
+                onSeek(range.start);
+              }
+            }}
+            onPlay={() => {
+              setIsVideoPlaying(true);
+            }}
+            onPause={() => {
+              setIsVideoPlaying(false);
+            }}
+            onTimeUpdate={(e) => {
+              const t = e.currentTarget.currentTime;
+              setCurrentVideoTime(t);
+              onSeek(t);
+              const range = activeClipRangeRef.current;
+              if (range && range.end > range.start) {
+                if (t >= range.end) {
+                  e.currentTarget.currentTime = range.start;
+                  setCurrentVideoTime(range.start);
+                  onSeek(range.start);
+                }
+              }
+            }}
+          />
+
+          {/* 1. TOP WINDOW BAR (Mac-style Header with Breadcrumbs & Render Action) */}
+          <div className="bg-[#0b0f19] border border-slate-800 rounded-2xl p-3 px-4 flex flex-wrap items-center justify-between gap-3 shadow-lg">
+            <div className="flex items-center gap-3">
+              {/* Traffic Lights */}
+              <div className="hidden sm:flex items-center gap-1.5 mr-1">
+                <span className="w-3 h-3 rounded-full bg-rose-500/80 border border-rose-600/40 block"></span>
+                <span className="w-3 h-3 rounded-full bg-cyan-500/80 border border-cyan-600/40 block"></span>
+                <span className="w-3 h-3 rounded-full bg-emerald-500/80 border border-emerald-600/40 block"></span>
+              </div>
+
+              {/* Back to Input */}
+              <button
+                type="button"
+                onClick={() => {
+                  setHasResults(false);
+                  setIsAturGayaOpen(false);
+                }}
+                className="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800 transition-colors cursor-pointer"
+                title="Kembali ke input video / analisis baru"
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </button>
+
+              {/* Source Badge */}
+              <span className="px-2 py-0.5 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30 text-[10px] font-mono font-bold uppercase tracking-wider">
+                {sourceVideoUrl?.includes('youtu') ? 'YOUTUBE' : 'VIDEO'}
               </span>
-              <span className="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-300">
-                Momen {clips.length}
-              </span>
-              <span className="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-cyan-400 font-bold">
-                Dicentang {checkedClipsCount}
-              </span>
-              <span className="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-400">
-                Dirender {renderedCount}
-              </span>
+
+              {/* Video Title & Total Duration */}
+              <div className="flex items-baseline gap-2 truncate max-w-[260px] sm:max-w-md lg:max-w-xl">
+                <span className="text-xs sm:text-sm font-bold text-white uppercase tracking-tight truncate">
+                  {videoTitle || 'PROYEK KLIP'}
+                </span>
+                <span className="text-[11px] font-mono text-slate-400 shrink-0">
+                  {formatSec(videoDuration || 0)}
+                </span>
+              </div>
             </div>
 
-            <button
-              onClick={handleBukaFolder}
-              className="px-3.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white transition-colors flex items-center gap-1.5"
-            >
-              <FolderOpen className="w-3.5 h-3.5" />
-              <span>Buka folder</span>
-            </button>
+            <div className="flex items-center gap-2.5">
+              {/* Hardware Acceleration Info */}
+              {hardwareInfo && (
+                <span className="hidden xl:inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-[10px] font-mono text-slate-400">
+                  <Cpu className="w-3 h-3 text-cyan-400" />
+                  <span>{hardwareInfo.label}</span>
+                </span>
+              )}
+
+              {/* Undo / Redo */}
+              <div className="hidden md:flex items-center gap-1 bg-slate-900 border border-slate-800 rounded-lg p-0.5">
+                <button
+                  type="button"
+                  className="p-1.5 rounded hover:bg-slate-800 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                  title="Urungkan (Ctrl+Z)"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  className="p-1.5 rounded hover:bg-slate-800 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                  title="Ulangi (Ctrl+Y)"
+                >
+                  <RotateCw className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              {/* Buka Folder */}
+              <button
+                type="button"
+                onClick={handleBukaFolder}
+                className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+                title="Buka folder hasil video render"
+              >
+                <FolderOpen className="w-3.5 h-3.5 text-cyan-400" />
+                <span className="hidden sm:inline">Buka folder</span>
+              </button>
+
+              {/* Main Batch Render CTA */}
+              <button
+                type="button"
+                onClick={() => handleStartRender()}
+                disabled={isRenderingPipeline || checkedClipsCount === 0}
+                className="px-4 sm:px-5 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-slate-950 font-black text-xs flex items-center gap-2 shadow-lg shadow-cyan-500/25 transition-all transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 cursor-pointer"
+              >
+                {isRenderingPipeline ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin text-slate-950" />
+                    <span>Rendering ({Math.round(renderProgressPercent)}%)...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 fill-current" />
+                    <span>Render {checkedClipsCount} klip</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
 
-          {/* TWO COLUMNS: Source Video Player (Left) + Detailed Clips (Right) */}
-          <div className={!isAturGayaOpen ? "grid grid-cols-1 lg:grid-cols-12 gap-6 items-start relative" : "fixed -top-[9999px] -left-[9999px] opacity-0 pointer-events-none"}>
-            {/* Left Column (5 Cols): 16:9 Player & Waveform & Ikhtisar */}
-            <div className="lg:col-span-5 space-y-5 lg:sticky lg:top-4 self-start">
-              {/* 16:9 Video Player Card */}
-              <div className="bg-[#0f172a]/70 border border-slate-800 rounded-2xl p-4 space-y-3">
-                <div className="text-[11px] font-mono text-slate-400 truncate">
-                  {videoTitle}
-                </div>
-
-                {/* 16:9 Video Canvas / HTML5 Video Player */}
-                <div className="relative w-full aspect-video bg-black rounded-xl overflow-hidden border border-slate-800 group shadow-lg">
-                  {sourceVideoUrl ? (
-                    <video
-                      ref={videoElemRef}
-                      src={sourceVideoUrl || undefined}
-                      poster={thumbnailUrl}
-                      controls
-                      playsInline
-                      crossOrigin="anonymous"
-                      className="w-full h-full object-contain bg-black"
-                      onTimeUpdate={(e) => {
-                        const t = e.currentTarget.currentTime;
-                        setCurrentVideoTime(t);
-                        if (activeClip && t >= activeClip.endTime) {
-                          e.currentTarget.currentTime = activeClip.startTime;
-                        }
-                      }}
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-black relative">
-                      {thumbnailUrl ? (
-                        <img
-                          src={thumbnailUrl}
-                          alt="Video Preview"
-                          className="w-full h-full object-contain"
-                        />
-                      ) : (
-                        <div className="w-full h-full bg-slate-950 flex items-center justify-center text-xs text-slate-500 font-mono">
-                          Menunggu video...
-                        </div>
-                      )}
-                      <button
-                        onClick={onTogglePlay}
-                        className="w-12 h-12 rounded-full bg-cyan-400/90 hover:bg-cyan-300 text-slate-950 flex items-center justify-center font-bold shadow-xl transition-transform transform hover:scale-105"
-                      >
-                        {isPlaying ? (
-                          <Pause className="w-5 h-5 fill-current" />
-                        ) : (
-                          <Play className="w-5 h-5 fill-current ml-0.5" />
-                        )}
-                      </button>
-                      <div className="absolute bottom-2 right-2 px-2 py-0.5 rounded bg-black/80 font-mono text-[10px] text-slate-300">
-                        {formatSec(currentTime)} / {formatSec(videoDuration)}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Audio Waveform & Heatmap Graph matching 7c0dfec5.jpg */}
-                <div className="bg-[#0b0f19] border border-slate-800 rounded-xl p-3 space-y-2">
-                  <div
-                    className="relative w-full h-12 flex items-center justify-between px-1 cursor-pointer"
-                    onClick={(e) => {
-                      const rect = e.currentTarget.getBoundingClientRect();
-                      const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-                      const dur = videoDuration || 572.5;
-                      const targetTime = ratio * dur;
-                      if (videoElemRef.current) {
-                        videoElemRef.current.currentTime = targetTime;
-                        videoElemRef.current.play().catch(() => {});
-                      }
-                      setCurrentVideoTime(targetTime);
-                    }}
-                  >
-                    {/* SVG Waveform from real audio energy */}
-                    <svg className="w-full h-full" viewBox="0 0 1000 64" preserveAspectRatio="none">
-                      {waveformEnergy.length > 0 ? (
-                        <polyline
-                          fill="none"
-                          stroke="#818cf8"
-                          strokeOpacity="0.85"
-                          strokeWidth="2.5"
-                          points={waveformEnergy
-                            .map(
-                              (v, i) =>
-                                `${(i / Math.max(waveformEnergy.length - 1, 1)) * 1000},${60 - v * 52}`
-                            )
-                            .join(' ')}
-                        />
-                      ) : (
-                        <path
-                          d="M0,32 Q50,8 100,32 T200,32 T300,12 T400,32 T500,8 T600,32 T700,16 T800,32 T900,12 T1000,32"
-                          fill="none"
-                          stroke="#06b6d4"
-                          strokeWidth="2"
-                        />
-                      )}
-                    </svg>
-
-                    {/* Marker Lines #1 - #5 matching 7c0dfec5.jpg */}
-                    {clips.map((clip) => {
-                      const dur = videoDuration || 572.5;
-                      const leftPct = (clip.startTime / dur) * 100;
-                      const widthPct = Math.max(1.5, ((clip.endTime - clip.startTime) / dur) * 100);
-                      return (
-                        <div
-                          key={clip.id}
-                          className="absolute top-0 bottom-0 border-l border-cyan-400/80 bg-cyan-400/10 pointer-events-none"
-                          style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
-                        >
-                          <span className="text-[9px] font-mono text-cyan-300 font-bold px-1 bg-black/70 rounded">
-                            #{clip.rankNum || clip.id}
-                          </span>
-                        </div>
-                      );
-                    })}
-
-                    {/* Current Time Cursor Line */}
-                    <div
-                      className="absolute top-0 bottom-0 w-0.5 bg-amber-400 pointer-events-none shadow-sm"
-                      style={{
-                        left: `${((currentVideoTime || currentTime) / (videoDuration || 572.5)) * 100}%`,
-                      }}
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between text-[10px] font-mono text-slate-500 pt-1 border-t border-slate-800/80">
-                    <span>heatmap tidak tersedia • memakai energi suara</span>
-                    <span>{formatSec(videoDuration || 572.5)}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Ikhtisar Klip (5) Checkbox List */}
-              <div className="bg-[#0f172a]/70 border border-slate-800 rounded-2xl p-4 space-y-3">
-                <div className="flex items-center gap-2 text-xs font-mono text-slate-400">
-                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
-                  <span>ikhtisar klip ({clips.length})</span>
-                </div>
-
-                <div className="space-y-1.5">
-                  {clips.map((clip) => {
-                    const isSelected = activeClipId === clip.id;
-                    return (
-                      <div
-                        key={clip.id}
-                        onClick={() => selectAndPlayClip(clip)}
-                        className={`p-2.5 rounded-xl border flex items-center justify-between gap-3 cursor-pointer transition-all ${
-                          isSelected
-                            ? 'bg-cyan-950/30 border-cyan-400 text-white shadow-sm'
-                            : 'bg-[#0b0f19] border-slate-800 text-slate-400 hover:text-slate-200'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2.5 truncate">
-                          <input
-                            type="checkbox"
-                            checked={clip.isChecked}
-                            onChange={(e) => {
-                              e.stopPropagation();
-                              toggleClipCheckbox(clip.id);
-                            }}
-                            className="w-3.5 h-3.5 rounded bg-slate-900 border-slate-700 text-cyan-400 accent-cyan-400 cursor-pointer"
-                          />
-                          <span className="text-xs font-semibold truncate">
-                            {clip.rankNum}. {clip.title}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2 text-[10px] font-mono shrink-0">
-                          <span className="font-bold text-cyan-400">{clip.viralScore}%</span>
-                          <span className="text-slate-600">•</span>
-                          <span className="text-slate-400">{formatSec(clip.startTime)}</span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
+          {/* 2. TOP GLOBAL TIMELINE MINI-MAP (Waveform & Clip Segments) */}
+          <div className="bg-[#0b0f19] border border-slate-800 rounded-2xl p-2.5 px-3 shadow-md space-y-1">
+            <div className="flex items-center justify-between text-[10px] font-mono text-slate-500 px-1">
+              <span>0:00</span>
+              <span className="text-slate-400 font-medium">Klik kotak klip di timeline untuk langsung beralih klip</span>
+              <span>{formatSec(videoDuration || 0)}</span>
             </div>
 
-            {/* Right Column (7 Cols): Search & Detailed Clip Cards */}
-            <div className="lg:col-span-7 space-y-5 pb-24">
-              {/* Top Quick Actions & Category Filter Bar */}
-              <div className="bg-[#0f172a]/80 border border-slate-800 rounded-2xl p-4 space-y-3.5 shadow-md">
-                <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-800/80">
-                  {/* Filter Pills */}
-                  <div className="flex items-center gap-1.5 p-1 rounded-xl bg-[#0b0f19] border border-slate-800 text-xs">
-                    <button
-                      type="button"
-                      onClick={() => setClipFilter('semua')}
-                      className={`px-3 py-1.5 rounded-lg font-semibold transition-all cursor-pointer ${
-                        clipFilter === 'semua'
-                          ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
-                          : 'text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      Semua ({clips.length})
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setClipFilter('dirender')}
-                      className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
-                        clipFilter === 'dirender'
-                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm'
-                          : 'text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      <span>Video Jadi</span>
-                      <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
-                        clips.filter((c) => Boolean(c.file)).length > 0
-                          ? 'bg-emerald-400 text-slate-950 font-bold animate-pulse'
-                          : 'bg-slate-800 text-slate-400'
-                      }`}>
-                        {clips.filter((c) => Boolean(c.file)).length}
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setClipFilter('dicentang')}
-                      className={`px-3 py-1.5 rounded-lg font-semibold transition-all cursor-pointer ${
-                        clipFilter === 'dicentang'
-                          ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
-                          : 'text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      Dicentang ({checkedClipsCount})
-                    </button>
-                  </div>
-
-                  {/* Top Quick Actions (No need to scroll down) */}
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsAturGayaOpen(true);
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                      }}
-                      className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition-colors flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-                      <span>Atur gaya</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={handleStartRender}
-                      disabled={isRenderingPipeline}
-                      className="px-4 py-1.5 rounded-xl bg-[#06b6d4] hover:bg-[#22d3ee] text-slate-950 font-bold text-xs flex items-center gap-1.5 transition-colors shadow-md shadow-cyan-500/20 disabled:opacity-50 cursor-pointer"
-                    >
-                      {isRenderingPipeline ? (
-                        <>
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          <span>Rendering...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Video className="w-3.5 h-3.5" />
-                          <span>Render ({checkedClipsCount})</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </div>
-
-                <div className="flex flex-col sm:flex-row items-center gap-3">
-                  <div className="relative flex-1 w-full">
-                    <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-500" />
-                    <input
-                      type="text"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Cari judul, caption, atau transkrip..."
-                      className="w-full bg-[#0b0f19] border border-slate-800 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-cyan-400"
+            <div
+              className="relative w-full h-8 bg-[#070a12] rounded-lg border border-slate-800/80 overflow-hidden cursor-pointer select-none group"
+              onClick={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+                const target = ratio * (videoDuration || 1);
+                const matchedClip = clips.find((c) => target >= c.startTime && target <= c.endTime);
+                if (matchedClip && matchedClip.id !== activeClipId) {
+                  selectAndPlayClip(matchedClip);
+                  return;
+                }
+                if (videoElemRef.current) {
+                  videoElemRef.current.currentTime = target;
+                }
+                setCurrentVideoTime(target);
+                onSeek(target);
+              }}
+            >
+              {/* Audio Waveform Energy Track */}
+              <div className="absolute inset-0 flex items-center justify-between px-1 opacity-20 pointer-events-none">
+                {waveformEnergy.length > 0 ? (
+                  <svg className="w-full h-full" viewBox="0 0 1000 64" preserveAspectRatio="none">
+                    <polyline
+                      fill="none"
+                      stroke="#f59e0b"
+                      strokeWidth="2.5"
+                      points={waveformEnergy
+                        .map((v, i) => `${(i / Math.max(waveformEnergy.length - 1, 1)) * 1000},${60 - v * 52}`)
+                        .join(' ')}
                     />
-                  </div>
+                  </svg>
+                ) : (
+                  <div className="w-full h-[1px] bg-slate-700"></div>
+                )}
+              </div>
 
-                  <div className="flex items-center gap-2 w-full sm:w-auto text-xs">
-                    <button className="px-3 py-2 rounded-xl bg-[#0b0f19] border border-slate-800 text-slate-300 hover:text-white flex items-center gap-1.5">
-                      <span>Semua skor</span>
-                      <ChevronDown className="w-3 h-3 text-slate-500" />
-                    </button>
-                    <button className="px-3 py-2 rounded-xl bg-[#0b0f19] border border-slate-800 text-slate-300 hover:text-white flex items-center gap-1.5">
-                      <span>Urut: skor</span>
-                      <ChevronDown className="w-3 h-3 text-slate-500" />
-                    </button>
+              {/* Proportional Clip Markers */}
+              {clips.map((clip) => {
+                const dur = videoDuration || 572.5;
+                const leftPct = (clip.startTime / dur) * 100;
+                const widthPct = Math.max(2, (clip.durationSec / dur) * 100);
+                const isSelected = clip.id === activeClipId;
+                return (
+                  <div
+                    key={clip.id}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      selectAndPlayClip(clip);
+                    }}
+                    style={{
+                      left: `${leftPct}%`,
+                      width: `${widthPct}%`,
+                    }}
+                    className={`absolute top-1 bottom-1 rounded transition-all cursor-pointer flex items-center justify-center ${
+                      isSelected
+                        ? 'bg-cyan-400 text-slate-950 font-black shadow-lg shadow-cyan-500/40 ring-2 ring-white z-20'
+                        : 'bg-cyan-500/30 hover:bg-cyan-400/70 border border-cyan-400/60 text-cyan-100 z-10'
+                    }`}
+                    title={`Klip #${clip.rankNum} • Skor: ${clip.viralScore}% (${clip.title})`}
+                  >
+                    <span className="text-[9px] font-mono font-bold truncate px-1">
+                      #{clip.rankNum}
+                    </span>
                   </div>
+                );
+              })}
+
+              {/* Real-time Playhead Tracker */}
+              <div
+                className="absolute top-0 bottom-0 w-[2px] bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,1)] z-30 pointer-events-none"
+                style={{
+                  left: `${(((hasResults ? currentVideoTime : currentTime) || 0) / Math.max(videoDuration || 1, 1)) * 100}%`,
+                }}
+              />
+            </div>
+          </div>
+
+          {/* 3. MAIN THREE-COLUMN WORKSPACE (Clip Deck, Player, Inspector) */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+            {/* COLUMN 1 (Left 3 Cols): Clip Deck Navigator */}
+            <div className="lg:col-span-3 bg-[#0b0f19] border border-slate-800 rounded-2xl p-3.5 space-y-3 shadow-lg self-start">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-800/80">
+                <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                  <span className="text-cyan-400">{clips.length} klip</span>
+                  <span className="text-slate-500">•</span>
+                  <span className="text-slate-300 font-mono text-[11px]">{checkedClipsCount} dipilih</span>
                 </div>
-
-                <div className="flex items-center justify-between text-xs pt-1">
-                  <div className="flex items-center gap-2 text-slate-400 text-[11px]">
-                    <span>Centang:</span>
-                    <button
-                      onClick={() => checkAllClips(true)}
-                      className="text-cyan-400 hover:underline font-semibold cursor-pointer"
-                    >
-                      semua
-                    </button>
-                    <span>•</span>
-                    <button
-                      onClick={() => checkAllClips(false)}
-                      className="text-slate-500 hover:text-slate-300 font-semibold cursor-pointer"
-                    >
-                      kosongkan
-                    </button>
-                  </div>
-
-                  <button className="text-[11px] font-mono text-cyan-400 hover:underline flex items-center gap-1">
-                    <span>Salin & ekspor</span>
-                    <ChevronDown className="w-3 h-3" />
+                <div className="flex items-center gap-2 text-[11px] font-medium text-slate-400">
+                  <button
+                    type="button"
+                    onClick={() => checkAllClips(false)}
+                    className="hover:text-cyan-300 transition-colors cursor-pointer"
+                  >
+                    Kosongkan
+                  </button>
+                  <span>/</span>
+                  <button
+                    type="button"
+                    onClick={() => checkAllClips(true)}
+                    className="hover:text-cyan-300 transition-colors cursor-pointer"
+                  >
+                    Pilih semua
                   </button>
                 </div>
               </div>
 
-              {/* Detailed Clip Cards List */}
-              <div className="space-y-4">
+              {/* Filter Tabs */}
+              <div className="flex items-center gap-1 p-0.5 rounded-lg bg-[#070a12] border border-slate-800 text-[11px]">
+                {(['semua', 'dicentang', 'dirender'] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setClipFilter(mode)}
+                    className={`flex-1 py-1 rounded-md font-semibold transition-all text-center capitalize cursor-pointer ${
+                      clipFilter === mode
+                        ? 'bg-cyan-400 text-slate-950 shadow-sm'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    {mode === 'dirender' ? `Jadi (${renderedCount})` : mode}
+                  </button>
+                ))}
+              </div>
+
+              {/* Search Bar */}
+              <div className="relative">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Cari kutipan klip..."
+                  className="w-full pl-7 pr-2.5 py-1.5 rounded-xl bg-[#070a12] border border-slate-800 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400"
+                />
+                <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-2.5 pointer-events-none" />
+              </div>
+
+              {/* Scrollable Clip Cards */}
+              <div className="space-y-2 max-h-[580px] overflow-y-auto pr-1 no-scrollbar">
                 {clips
                   .filter((c) => {
-                    const matchesSearch =
-                      c.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                      c.quote.toLowerCase().includes(searchQuery.toLowerCase());
-                    if (!matchesSearch) return false;
-                    if (clipFilter === 'dirender') return Boolean(c.file);
-                    if (clipFilter === 'dicentang') return Boolean(c.isChecked);
+                    if (clipFilter === 'dicentang' && !c.isChecked) return false;
+                    if (clipFilter === 'dirender' && !c.file) return false;
+                    if (searchQuery.trim()) {
+                      const q = searchQuery.toLowerCase();
+                      return (
+                        c.title.toLowerCase().includes(q) ||
+                        c.quote.toLowerCase().includes(q) ||
+                        c.caption.toLowerCase().includes(q)
+                      );
+                    }
                     return true;
                   })
                   .map((clip) => {
@@ -2950,1672 +3567,1714 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
                     return (
                       <div
                         key={clip.id}
-                        className={`rounded-2xl border p-5 space-y-4 transition-all shadow-md ${
+                        onClick={() => selectAndPlayClip(clip)}
+                        className={`p-3 rounded-xl border transition-all cursor-pointer space-y-2 ${
                           isSelected
-                            ? 'bg-[#0f172a] border-cyan-400 ring-1 ring-cyan-400/20'
-                            : 'bg-[#0f172a]/60 border-slate-800'
+                            ? 'bg-cyan-950/30 border-cyan-400 ring-1 ring-cyan-400/40 shadow-md shadow-cyan-950/50'
+                            : 'bg-[#0f172a]/70 border-slate-800/80 hover:border-slate-700 text-slate-300'
                         }`}
                       >
-                        {/* Title & Score Badge */}
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex items-center gap-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-start gap-2.5 truncate">
                             <input
                               type="checkbox"
                               checked={clip.isChecked}
-                              onChange={() => toggleClipCheckbox(clip.id)}
-                              className="w-4 h-4 rounded bg-slate-900 border-slate-700 text-cyan-400 accent-cyan-400 cursor-pointer"
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                toggleClipCheckbox(clip.id);
+                              }}
+                              className="mt-0.5 w-3.5 h-3.5 rounded bg-slate-900 border-slate-700 text-cyan-400 accent-cyan-400 cursor-pointer shrink-0"
                             />
-                            <h3 className="text-sm font-bold text-white leading-snug">
-                              {clip.rankNum}. {clip.title}
-                            </h3>
-                          </div>
-                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#00d2d3]/20 text-[#00d2d3] border border-[#00d2d3]/40 font-mono shrink-0">
-                            {clip.viralScore}% viral
-                          </span>
-                        </div>
-
-                        {/* Timing details */}
-                        <div className="flex items-center gap-3 text-xs font-mono text-slate-400">
-                          <span>
-                            {formatSec(clip.startTime)} - {formatSec(clip.endTime)}
-                          </span>
-                          <span className="text-slate-600">•</span>
-                          <span>{clip.durationSec} dtk</span>
-                          <span className="text-slate-600">•</span>
-                          <span className="px-2 py-0.5 rounded bg-slate-800/80 text-cyan-300 text-[10px]">
-                            {clip.hookTimestamp}
-                          </span>
-                        </div>
-
-                        {/* Transcript Quote */}
-                        <p className="text-xs text-slate-300 italic leading-relaxed bg-[#0b0f19] border border-slate-800/80 rounded-xl p-3">
-                          {clip.quote}
-                        </p>
-
-                        {/* Form Fields: JUDUL, CAPTION, ALASAN */}
-                        <div className="space-y-2 text-xs font-mono">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-slate-500 w-16 uppercase text-[10px]">JUDUL</span>
-                            <span className="text-white flex-1 font-sans text-xs truncate">
-                              {clip.title}
-                            </span>
-                            <button
-                              onClick={() => handleCopyText(clip.title, `title-${clip.id}`)}
-                              className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-semibold flex items-center gap-1 transition-colors"
-                            >
-                              <Copy className="w-3 h-3" />
-                              <span>{copiedKey === `title-${clip.id}` ? 'Disalin' : 'Salin'}</span>
-                            </button>
-                          </div>
-
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-slate-500 w-16 uppercase text-[10px]">CAPTION</span>
-                            <span className="text-white flex-1 font-sans text-xs truncate">
-                              {clip.caption}
-                            </span>
-                            <button
-                              onClick={() => handleCopyText(clip.caption, `cap-${clip.id}`)}
-                              className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-semibold flex items-center gap-1 transition-colors"
-                            >
-                              <Copy className="w-3 h-3" />
-                              <span>{copiedKey === `cap-${clip.id}` ? 'Disalin' : 'Salin'}</span>
-                            </button>
-                          </div>
-
-                          <div className="flex items-center gap-2">
-                            <span className="text-slate-500 w-16 uppercase text-[10px]">ALASAN</span>
-                            <span className="text-cyan-400 text-[11px] font-sans">
-                              {clip.reason}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Card Action Buttons */}
-                        <div className="pt-2 flex flex-wrap items-center gap-2 border-t border-slate-800/80 text-xs">
-                          <button
-                            onClick={() => selectAndPlayClip(clip)}
-                            className="px-3.5 py-1.5 rounded-lg bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-bold flex items-center gap-1.5 transition-colors"
-                          >
-                            <Play className="w-3.5 h-3.5 fill-current" />
-                            <span>Putar</span>
-                          </button>
-
-                          <button
-                            onClick={() =>
-                              handleCopyText(
-                                `${formatSec(clip.startTime)} - ${formatSec(clip.endTime)}`,
-                                `ts-${clip.id}`
-                              )
-                            }
-                            className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
-                          >
-                            {copiedKey === `ts-${clip.id}` ? 'Disalin' : 'Salin timestamp'}
-                          </button>
-
-                          <button
-                            onClick={() =>
-                              handleCopyText(
-                                `${clip.title}\n${clip.quote}`,
-                                `detail-${clip.id}`
-                              )
-                            }
-                            className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
-                          >
-                            {copiedKey === `detail-${clip.id}` ? 'Disalin' : 'Salin detail'}
-                          </button>
-
-                          <button
-                            onClick={() => {
-                              const rawWords = `${clip.title} ${clip.caption || ''}`
-                                .toLowerCase()
-                                .replace(/[^\w\s]/g, '')
-                                .split(/\s+/)
-                                .filter((w) => w.length >= 4);
-                              const dynamicTags = Array.from(new Set(rawWords)).slice(0, 5).map((w) => `#${w}`);
-                              const hashtags = ['#fyp', '#viral', '#shorts', '#reels', ...dynamicTags];
-                              const postText = `🔥 ${clip.title}\n\n"${clip.quote || clip.caption || ''}"\n\n👇 Tonton sampai habis & share jika bermanfaat!\n\n${hashtags.join(' ')}`;
-                              navigator.clipboard.writeText(postText);
-                              setCopiedKey(`soc-${clip.id}`);
-                              setTimeout(() => setCopiedKey(null), 2500);
-                            }}
-                            className="px-3 py-1.5 rounded-lg bg-cyan-950/40 hover:bg-cyan-900/50 text-cyan-300 border border-cyan-800/40 transition-colors flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
-                            title="Salin deskripsi siap upload untuk TikTok / Reels / Shorts"
-                          >
-                            {copiedKey === `soc-${clip.id}` ? (
-                              <>
-                                <Check className="w-3.5 h-3.5 text-emerald-400" />
-                                <span className="text-emerald-400">Caption Disalin!</span>
-                              </>
-                            ) : (
-                              <>
-                                <Hash className="w-3.5 h-3.5 text-cyan-400" />
-                                <span>Salin Caption & Tag</span>
-                              </>
-                            )}
-                          </button>
-
-                          <button className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors flex items-center gap-1">
-                            <span>Transkrip</span>
-                            <ChevronDown className="w-3 h-3" />
-                          </button>
-
-                          <button
-                            onClick={() => {
-                              handleOpenEditSubtitle(clip);
-                            }}
-                            className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors flex items-center gap-1.5"
-                          >
-                            <Edit3 className="w-3.5 h-3.5" />
-                            <span>Edit subtitle</span>
-                          </button>
-                        </div>
-
-                        {/* Rendered Vertical Clip Video & Download MP4 matching images 6 & 7 */}
-                        {clip.file && (
-                          <div className="mt-4 pt-4 border-t border-slate-800 flex flex-col sm:flex-row items-start sm:items-center gap-4 bg-[#080c14]/80 p-3.5 rounded-xl border border-slate-800 animate-fadeIn">
-                            <div className="w-28 sm:w-32 aspect-[9/16] bg-black rounded-lg overflow-hidden border border-slate-800 shrink-0 shadow-md">
-                              <video
-                                src={clip.file ? getStreamUrl(proyekNama, clip.file) : undefined}
-                                controls
-                                playsInline
-                                preload="metadata"
-                                className="w-full h-full object-cover"
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <div className="flex items-center gap-2 text-xs font-mono font-semibold text-emerald-400">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                                <span>sudah dirender</span>
+                            <div className="space-y-0.5 truncate">
+                              <div className="text-xs font-bold text-white truncate">
+                                {clip.title}
                               </div>
-                              <a
-                                href={`/berkas/klip/${proyekNama}/${clip.file}`}
-                                download={`${proyekNama}-${clip.file}`}
-                                className="px-4 py-2 rounded-xl bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-bold text-xs inline-flex items-center gap-2 transition-colors shadow-sm"
-                              >
-                                <Download className="w-3.5 h-3.5" />
-                                <span>Unduh MP4</span>
-                              </a>
+                              <div className="text-[10px] font-mono text-cyan-400/90 flex items-center gap-1.5">
+                                <span className="px-1.5 py-0.2 rounded bg-cyan-400/10 border border-cyan-400/20">
+                                  Hook kuat
+                                </span>
+                                <span className="text-slate-400">{formatSec(clip.startTime)} • {clip.durationSec}s</span>
+                              </div>
                             </div>
                           </div>
-                        )}
+
+                          <div className="w-8 h-8 rounded-full border border-cyan-400/50 bg-[#070a12] text-cyan-400 flex items-center justify-center font-bold text-xs shrink-0 shadow-sm">
+                            {clip.viralScore}
+                          </div>
+                        </div>
+
+                        <div className="text-[11px] text-slate-400 line-clamp-2 leading-relaxed italic bg-[#070a12]/50 p-1.5 rounded-lg border border-slate-800/40">
+                          "{clip.quote || clip.caption}"
+                        </div>
+
+                        {/* Quick action buttons row on card */}
+                        <div className="flex items-center justify-between pt-1 border-t border-slate-800/60 text-[10px]">
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleCopyText(clip.quote || clip.caption, String(clip.id));
+                              }}
+                              className="text-slate-400 hover:text-white flex items-center gap-1 cursor-pointer"
+                              title="Salin kutipan teks"
+                            >
+                              <Copy className="w-3 h-3" />
+                              <span>{copiedKey === `quote-${clip.id}` ? 'Tersalin!' : 'Salin'}</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenEditSubtitle(clip);
+                              }}
+                              className="text-slate-400 hover:text-white flex items-center gap-1 cursor-pointer"
+                              title="Edit subtitle"
+                            >
+                              <Edit3 className="w-3 h-3" />
+                              <span>Edit</span>
+                            </button>
+                          </div>
+
+                          {clip.file && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDownloadClip(clip);
+                              }}
+                              className="text-emerald-400 hover:text-emerald-300 font-mono font-medium flex items-center gap-1 cursor-pointer"
+                            >
+                              <Download className="w-3 h-3" />
+                              <span>Video siap</span>
+                            </button>
+                          )}
+                        </div>
                       </div>
                     );
                   })}
-                {clipFilter === 'dirender' && clips.filter((c) => Boolean(c.file)).length === 0 && (
-                  <div className="bg-[#0f172a]/70 border border-dashed border-slate-800 rounded-2xl p-8 text-center space-y-3">
-                    <div className="w-12 h-12 rounded-full bg-cyan-500/10 text-cyan-400 flex items-center justify-center mx-auto">
-                      <Video className="w-6 h-6 text-cyan-400" />
-                    </div>
-                    <div className="text-sm font-semibold text-white">Belum ada video yang selesai dirender</div>
-                    <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                      Pilih klip yang ingin dirender, sesuaikan gaya jika diinginkan, lalu klik tombol "Render sekarang" di bawah.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => setClipFilter('semua')}
-                      className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 transition-colors cursor-pointer"
-                    >
-                      Lihat Semua Klip
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Floating Bottom Bar (Persistent & Always in View) */}
-              <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-40 w-[92%] max-w-2xl bg-[#0d1527]/95 backdrop-blur-md border border-cyan-500/30 rounded-2xl p-3 sm:p-4 flex items-center justify-between shadow-2xl shadow-black/80">
-                <div className="flex items-center gap-2 text-xs font-mono font-bold text-white">
-                  <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-                  <span>{checkedClipsCount} klip dicentang</span>
-                  {clips.filter((c) => Boolean(c.file)).length > 0 && (
-                    <span className="text-[11px] text-emerald-400 font-normal hidden sm:inline">
-                      • {clips.filter((c) => Boolean(c.file)).length} sudah jadi
-                    </span>
-                  )}
-                </div>
-
-                <div className="flex items-center gap-2.5">
-                  <button
-                    onClick={() => {
-                      setIsAturGayaOpen(true);
-                      window.scrollTo({ top: 0, behavior: 'smooth' });
-                    }}
-                    className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition-colors cursor-pointer"
-                  >
-                    Atur gaya
-                  </button>
-
-                  <button
-                    onClick={handleStartRender}
-                    disabled={isRenderingPipeline}
-                    className="px-5 py-2 rounded-xl bg-[#06b6d4] hover:bg-[#22d3ee] text-slate-950 font-bold text-xs flex items-center gap-2 transition-colors shadow-lg shadow-cyan-500/20 disabled:opacity-50 cursor-pointer"
-                  >
-                    {isRenderingPipeline ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>Rendering {Math.round(renderProgressPercent)}%</span>
-                      </>
-                    ) : (
-                      <span>Render sekarang</span>
-                    )}
-                  </button>
-                </div>
               </div>
             </div>
-          </div>
 
-          {isAturGayaOpen && (
-            /* ============================================================== */
-            /* 4. STUDIO RENDER 1080x1920 (Screenshots 3, 4, 5, 6, 89752451.jpg) */
-            /* ============================================================== */
-            <div
-              id="studio-render-section"
-              className="space-y-6 animate-fadeIn"
-            >
-              <div className="flex items-center justify-between pb-2 border-b border-slate-800/80">
-                <div className="flex items-center gap-2 text-xs font-mono text-cyan-400">
-                  <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-                  <span className="font-semibold uppercase tracking-wider text-[11px]">calclip.in • render 1080×1920</span>
+            {/* COLUMN 2 (Center 5 Cols): Canvas Player & Transport */}
+            <div className="lg:col-span-5 bg-[#0b0f19] border border-slate-800 rounded-2xl p-4 flex flex-col items-center space-y-3.5 shadow-xl self-start">
+              {/* Canvas Header Metadata & Safe Zone */}
+              <div className="w-full flex items-center justify-between px-1 text-[11px] font-mono">
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-0.5 rounded bg-cyan-950/60 border border-cyan-800/60 text-cyan-300 font-bold">
+                    {canvasRatio}
+                  </span>
+                  <span className="text-slate-400 text-[10px]">
+                    {canvasDim.w}×{canvasDim.h}
+                  </span>
                 </div>
+
                 <button
-                  onClick={() => setIsAturGayaOpen(false)}
-                  className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-semibold flex items-center gap-2 border border-slate-700 transition-colors"
+                  type="button"
+                  onClick={() => setShowSafeZone(!showSafeZone)}
+                  className={`px-2.5 py-1 rounded-lg text-[10px] font-mono flex items-center gap-1.5 transition-colors border cursor-pointer ${
+                    showSafeZone
+                      ? 'bg-cyan-950 text-cyan-300 border-cyan-400/50 shadow-sm'
+                      : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-white'
+                  }`}
+                  title="Tampilkan / sembunyikan batas zona aman TikTok & Reels"
                 >
-                  <ArrowLeft className="w-3.5 h-3.5" />
-                  <span>Kembali ke daftar klip</span>
+                  <Shield className="w-3 h-3" />
+                  <span>Safe Zone {showSafeZone ? 'ON' : 'OFF'}</span>
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch relative">
-              {/* Left Column (8 Cols): Deep Controls from Screenshots */}
-              <div className="lg:col-span-8 space-y-6">
-                {/* Quick Jump Category Navigation Bar (Sticky at Top of Controls) */}
-                <div className="sticky top-0 z-30 -mx-1 px-3 py-2.5 bg-[#070b14]/95 backdrop-blur-md border border-slate-800 rounded-2xl mb-6 flex items-center gap-2 overflow-x-auto no-scrollbar shadow-xl">
-                  <span className="text-[10px] font-mono text-slate-500 uppercase px-1 shrink-0 hidden sm:inline">Navigasi:</span>
-                  {[
-                    { id: 'sec-rasio-layout', label: 'Rasio & Layout' },
-                    { id: 'sec-streamer', label: 'Streamer & Game', show: layoutMode === 'atas_bawah' || layoutMode === 'pip' },
-                    { id: 'sec-podcast', label: 'Split Podcast', show: layoutMode === 'split' },
-                    { id: 'sec-banner', label: 'Banner Hook' },
-                    { id: 'sec-subtitle', label: 'Gaya Subtitle' },
-                    { id: 'sec-font', label: 'Font & Ukuran' },
-                    { id: 'sec-efek', label: 'Efek & Hook' },
-                    { id: 'sec-audio', label: 'Musik & Suara' },
-                  ]
-                    .filter((tab) => tab.show !== false)
-                    .map((tab) => (
-                      <button
-                        key={tab.id}
-                        type="button"
-                        onClick={() => {
-                          const el = document.getElementById(tab.id);
-                          if (el) {
-                            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                          }
-                        }}
-                        className="px-2.5 py-1 rounded-lg bg-[#0b0f19] hover:bg-cyan-500/15 border border-slate-800 hover:border-cyan-400/50 text-slate-300 hover:text-cyan-300 text-xs font-semibold whitespace-nowrap transition-all cursor-pointer shrink-0"
-                      >
-                        {tab.label}
-                      </button>
-                    ))}
-                </div>
+              {/* Center Video Canvas Player Box */}
+              <div className="ponsel relative w-full flex flex-col items-center">
+                <div
+                  className="layar relative overflow-hidden transition-all duration-300 shadow-2xl bg-black border border-slate-800 group"
+                  style={{
+                    width: `${canvasDim.cssW}px`,
+                    height: `${canvasDim.cssH}px`,
+                    borderRadius: canvasDim.r,
+                  }}
+                >
+                  <canvas
+                    ref={kanvasStudioRef}
+                    width={canvasDim.w}
+                    height={canvasDim.h}
+                    className="cursor-pointer block w-full h-full"
+                    onClick={togglePlayPause}
+                    title="Klik untuk putar / jeda video (Spasi)"
+                  />
 
-                {/* 1. Kanvas & Rasio Isi */}
-                <div id="sec-rasio-layout" className="bg-[#0f172a]/70 border border-slate-800 rounded-2xl p-5 space-y-3 scroll-mt-16">
-                  <div className="text-xs font-bold text-slate-300">Kanvas & rasio isi</div>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                    {[
-                      { id: '9:16', label: '9:16 penuh', sub: 'dipotong penuh' },
-                      { id: '1:1', label: '1:1 kotak', sub: 'bar atas-bawah' },
-                      { id: '4:3', label: '4:3 klasik', sub: 'bar atas-bawah' },
-                      { id: '16:9', label: '16:9 lebar', sub: 'rasio asli' },
-                    ].map((opt) => (
-                      <button
-                        key={opt.id}
-                        type="button"
-                        onClick={() => setCanvasRatio(opt.id as any)}
-                        className={`p-3 rounded-xl border text-left transition-all ${
-                          canvasRatio === opt.id
-                            ? 'bg-cyan-950/20 border-cyan-400 text-cyan-300 ring-1 ring-cyan-400/20'
-                            : 'bg-[#0b0f19] border-slate-800 text-slate-400 hover:text-white'
-                        }`}
-                      >
-                        <div className="text-xs font-bold">{opt.label}</div>
-                        <div className="text-[10px] text-slate-500 mt-0.5">{opt.sub}</div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Latar bar: Only shown when canvasRatio !== '9:16' || layoutMode !== 'satu' */}
-                {(canvasRatio !== '9:16' || layoutMode !== 'satu') && (
-                  <div className="bg-[#0f172a]/70 border border-slate-800 rounded-2xl p-5 space-y-3">
-                    <div className="text-xs font-bold text-slate-300">Latar bar</div>
-                    <div className="grid grid-cols-2 gap-2 max-w-md">
-                      <button
-                        type="button"
-                        onClick={() => setBarBackground('hitam')}
-                        className={`py-2 px-4 rounded-xl border text-xs font-semibold transition-all ${
-                          barBackground === 'hitam'
-                            ? 'bg-[#06b6d4] text-slate-950 font-bold border-cyan-400'
-                            : 'bg-[#0b0f19] border-slate-800 text-slate-400 hover:text-white'
-                        }`}
-                      >
-                        Hitam polos
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setBarBackground('buram')}
-                        className={`py-2 px-4 rounded-xl border text-xs font-semibold transition-all ${
-                          barBackground === 'buram'
-                            ? 'bg-[#06b6d4] text-slate-950 font-bold border-cyan-400'
-                            : 'bg-[#0b0f19] border-slate-800 text-slate-400 hover:text-white'
-                        }`}
-                      >
-                        Video diburamkan
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* 2. Titik Fokus Horizontal */}
-                <div className="bg-[#0f172a]/70 border border-slate-800 rounded-2xl p-5 space-y-3">
-                  <div className="text-xs font-bold text-slate-300">Titik fokus horizontal</div>
-                  <div className="grid grid-cols-4 gap-2">
-                    {[
-                      { id: 'otomatis', label: 'Otomatis (wajah)' },
-                      { id: 'kiri', label: 'Kiri' },
-                      { id: 'tengah', label: 'Tengah' },
-                      { id: 'kanan', label: 'Kanan' },
-                    ].map((opt) => (
-                      <button
-                        key={opt.id}
-                        type="button"
-                        onClick={() => setFocusPoint(opt.id as any)}
-                        className={`py-2 px-3 rounded-xl border text-xs font-semibold transition-all ${
-                          focusPoint === opt.id
-                            ? 'bg-[#06b6d4] text-slate-950 font-bold border-cyan-400'
-                            : 'bg-[#0b0f19] border-slate-800 text-slate-400 hover:text-white'
-                        }`}
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* 3. Layout Streamer / Facecam matching screenshot 26971aee.jpg */}
-                <div className="bg-[#0f172a]/70 border border-slate-800 rounded-2xl p-5 space-y-3">
-                  <div className="text-xs font-bold text-slate-300">Layout streamer / facecam</div>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                    {[
-                      { id: 'satu', label: 'Satu video' },
-                      { id: 'atas_bawah', label: 'Wajah atas • layar bawah' },
-                      { id: 'pip', label: 'Wajah di pojok (PiP)' },
-                    ].map((opt) => (
-                      <button
-                        key={opt.id}
-                        type="button"
-                        onClick={() => {
-                          setLayoutMode(opt.id as any);
-                          setCanvasRatio('9:16');
-                          if (opt.id === 'atas_bawah' || opt.id === 'pip') {
-                            handleDetectFacecam();
-                          }
-                        }}
-                        className={`p-2.5 rounded-xl border text-xs font-semibold text-center transition-all ${
-                          layoutMode === opt.id
-                            ? 'bg-[#06b6d4] text-slate-950 font-bold border-cyan-400'
-                            : 'bg-[#0b0f19] border-slate-800 text-slate-400 hover:text-white'
-                        }`}
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="pt-1">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setLayoutMode('split');
-                        setCanvasRatio('9:16');
-                      }}
-                      className={`w-full p-2.5 rounded-xl border text-xs font-semibold text-center transition-all ${
-                        layoutMode === 'split'
-                          ? 'bg-[#06b6d4] text-slate-950 font-bold border-cyan-400'
-                          : 'bg-[#0b0f19] border-slate-800 text-slate-400 hover:text-white'
-                      }`}
+                  {/* Play Button Overlay When Paused */}
+                  {!isVideoPlaying && (
+                    <div
+                      onClick={togglePlayPause}
+                      className="absolute inset-0 flex items-center justify-center bg-black/35 cursor-pointer backdrop-blur-[1px] transition-opacity"
                     >
-                      Split podcast (2 orang)
-                    </button>
-                  </div>
+                      <div className="w-14 h-14 rounded-full bg-cyan-400 text-slate-950 flex items-center justify-center font-bold shadow-2xl transition-transform transform hover:scale-110">
+                        <Play className="w-6 h-6 fill-current ml-0.5" />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Safe Zone Overlay */}
+                  {showSafeZone && (
+                    <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-2 select-none z-30">
+                      <div className="w-full h-[14%] border-b border-dashed border-cyan-400/80 bg-cyan-500/10 rounded-t flex items-center justify-center">
+                        <span className="text-[9px] font-mono font-medium text-cyan-300 bg-black/70 px-1.5 py-0.2 rounded shadow">
+                          Header TikTok
+                        </span>
+                      </div>
+                      <div className="w-full flex-1 flex justify-between items-center py-1">
+                        <div className="flex-1 h-full border border-dashed border-emerald-400/60 bg-emerald-500/5 rounded flex items-center justify-center">
+                          <span className="text-[9px] font-mono font-medium text-emerald-300/90 bg-black/70 px-1.5 py-0.2 rounded text-center shadow">
+                            Zona Aman Wajah & Subtitle
+                          </span>
+                        </div>
+                        <div className="w-[18%] h-full border-l border-dashed border-rose-400/80 bg-rose-500/10 rounded-r flex flex-col items-center justify-center">
+                          <span className="text-[8px] font-mono font-medium text-rose-300 bg-black/70 px-1 py-0.2 rounded rotate-90 whitespace-nowrap shadow">
+                            Like / Share
+                          </span>
+                        </div>
+                      </div>
+                      <div className="w-full h-[22%] border-t border-dashed border-cyan-400/80 bg-cyan-500/10 rounded-b flex items-center justify-center">
+                        <span className="text-[9px] font-mono font-medium text-cyan-300 bg-black/70 px-1.5 py-0.2 rounded shadow">
+                          Caption TikTok/Reels
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Scrubber & Transport Bar */}
+              <div className="w-full space-y-2 pt-1 px-1">
+                <div className="flex items-center gap-2.5">
+                  <button
+                    type="button"
+                    onClick={togglePlayPause}
+                    className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-white flex items-center justify-center transition-colors shrink-0 cursor-pointer"
+                    title={isVideoPlaying ? "Jeda (Spasi)" : "Putar (Spasi)"}
+                  >
+                    {isVideoPlaying ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current ml-0.5" />}
+                  </button>
+
+                  <input
+                    type="range"
+                    min={editStartTime || activeClip?.startTime || 0}
+                    max={editEndTime || activeClip?.endTime || 30}
+                    step={0.1}
+                    value={Math.max(editStartTime || activeClip?.startTime || 0, Math.min(hasResults ? currentVideoTime : currentTime, editEndTime || activeClip?.endTime || 30))}
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      if (videoElemRef.current) {
+                        videoElemRef.current.currentTime = val;
+                      }
+                      setCurrentVideoTime(val);
+                      onSeek(val);
+                    }}
+                    className="flex-1 accent-cyan-400 cursor-pointer h-1.5 bg-slate-800 rounded-lg"
+                  />
+
+                  <span className="text-[11px] font-mono text-slate-400 shrink-0">
+                    {formatSec(Math.max(0, (hasResults ? currentVideoTime : currentTime) - (editStartTime || activeClip?.startTime || 0)))} / {formatSec(Math.max(1, (editEndTime || activeClip?.endTime || 30) - (editStartTime || activeClip?.startTime || 0)))}
+                  </span>
                 </div>
 
-                {/* Panel Pengaturan Khusus: Streamer / Facecam + Gameplay (Aktif untuk Atas-Bawah & PiP) */}
-                {(layoutMode === 'atas_bawah' || layoutMode === 'pip') && (
-                  <div id="sec-streamer" className="bg-[#0b1329]/90 border border-cyan-500/30 rounded-2xl p-5 space-y-4 shadow-lg shadow-cyan-950/20 scroll-mt-16">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-                        <span className="text-xs font-bold text-cyan-300">
-                          {layoutMode === 'pip' ? 'Pengaturan PiP Facecam & Layar Game' : 'Pengaturan Gameplay & Facecam Streamer'}
-                        </span>
+                {/* Quick Action CTA Buttons */}
+                <div className="grid grid-cols-2 gap-2 pt-1 w-full">
+                  <button
+                    type="button"
+                    onClick={() => handleStartRender(activeClip)}
+                    disabled={isRenderingPipeline}
+                    className="py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50 cursor-pointer"
+                  >
+                    <Video className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>Render klip ini</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (activeClip?.file) {
+                        handleDownloadClip(activeClip);
+                      } else {
+                        handleStartRender(activeClip);
+                      }
+                    }}
+                    className="py-2 px-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-slate-950 text-xs font-bold flex items-center justify-center gap-1.5 shadow-md shadow-cyan-500/20 transition-all cursor-pointer"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>{activeClip?.file ? 'Unduh MP4' : 'Render & Unduh'}</span>
+                  </button>
+                </div>
+
+                <div className="text-[10px] font-mono text-slate-500 text-center pt-1 border-t border-slate-800/60">
+                  Spasi: putar/jeda • Safe Zone ON/OFF
+                </div>
+              </div>
+            </div>
+
+            {/* COLUMN 3 (Right 4 Cols): Inspector / Atur Gaya Ber-Tab */}
+            <div className="lg:col-span-4 bg-[#0b0f19] border border-slate-800 rounded-2xl p-4 space-y-4 shadow-xl self-start">
+              {/* Header Inspector */}
+              <div className="flex items-center justify-between pb-2 border-b border-slate-800/80">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
+                  <span className="text-xs font-bold text-white uppercase tracking-wider">
+                    Atur Gaya & Properti
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 text-xs font-mono">
+                  <span className="text-slate-400 text-[10px]">Skor:</span>
+                  <span className="font-bold text-cyan-400 bg-cyan-950/60 border border-cyan-800/60 px-2 py-0.5 rounded-full">
+                    {activeClip?.viralScore || 70}%
+                  </span>
+                </div>
+              </div>
+
+              {/* Tab Navigation: [Gaya] [Teks] [Hook] [Layout] [Potong] [Efek] */}
+              <div className="grid grid-cols-6 gap-1 p-1 rounded-xl bg-[#070a12] border border-slate-800">
+                {[
+                  { id: 'gaya', label: 'Gaya', icon: Palette },
+                  { id: 'teks', label: 'Teks', icon: Type },
+                  { id: 'hook', label: 'Hook', icon: Sparkles },
+                  { id: 'layout', label: 'Layout', icon: Layers },
+                  { id: 'potong', label: 'Potong', icon: Scissors },
+                  { id: 'efek', label: 'Efek', icon: Sliders },
+                ].map((tab) => {
+                  const Icon = tab.icon;
+                  const isActive = editorActiveTab === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setEditorActiveTab(tab.id as any)}
+                      className={`py-1.5 px-0.5 rounded-lg text-[10px] font-bold flex flex-col items-center justify-center gap-0.5 transition-all cursor-pointer ${
+                        isActive
+                          ? 'bg-cyan-400 text-slate-950 shadow-md shadow-cyan-400/20'
+                          : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                      }`}
+                      title={tab.label}
+                    >
+                      <Icon className="w-3.5 h-3.5 shrink-0" />
+                      <span className="tracking-tight">{tab.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Tab Contents */}
+              <div className="space-y-4 max-h-[660px] xl:max-h-[740px] overflow-y-auto pr-1">
+                {/* TAB 1: GAYA SUBTITLE */}
+                {editorActiveTab === 'gaya' && (
+                  <div className="space-y-4 animate-fadeIn">
+                    <div className="flex items-center justify-between p-3 rounded-xl bg-[#0f172a]/70 border border-slate-800">
+                      <div className="space-y-0.5">
+                        <div className="text-xs font-bold text-white">Tampilkan Subtitle</div>
+                        <div className="text-[10px] text-slate-400">Berlaku untuk semua klip di proyek ini</div>
                       </div>
                       <button
                         type="button"
-                        onClick={handleDetectFacecam}
-                        disabled={isDetectingFacecam}
-                        className="flex items-center gap-1.5 text-[11px] bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/40 px-2.5 py-1 rounded-lg font-semibold transition-all disabled:opacity-50 cursor-pointer"
+                        onClick={() => setHasSubtitles(!hasSubtitles)}
+                        className={`w-11 h-6 rounded-full transition-colors relative cursor-pointer ${
+                          hasSubtitles ? 'bg-cyan-400' : 'bg-slate-700'
+                        }`}
                       >
-                        <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-                        <span>{isDetectingFacecam ? 'Mendeteksi Facecam...' : 'Deteksi Otomatis (AI)'}</span>
+                        <span
+                          className={`block w-4 h-4 rounded-full bg-slate-950 transition-transform ${
+                            hasSubtitles ? 'translate-x-6' : 'translate-x-1'
+                          }`}
+                        />
                       </button>
                     </div>
 
-                    {/* Bagian 1: Tampilan Layar Gameplay */}
-                    <div className="bg-[#070b14]/80 border border-slate-800/80 rounded-xl p-3.5 space-y-3">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="font-semibold text-slate-200 flex items-center gap-1.5">
-                          <span className="text-cyan-400 font-bold">Layar Gameplay</span> {layoutMode === 'atas_bawah' ? '(Bagian Bawah)' : '(Layar Utama)'}
-                        </span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[11px] text-cyan-400 font-mono font-bold bg-cyan-950/60 border border-cyan-800/50 px-2 py-0.5 rounded">
-                            Zoom {gameplayZoom.toFixed(2)}x • Posisi ({Math.round(gameplayFocusX * 100)}%, {Math.round(gameplayFocusY * 100)}%)
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setGameplayZoom(1.0);
-                              setGameplayFocusX(0.5);
-                              setGameplayFocusY(0.5);
-                            }}
-                            title="Reset ukuran dan posisi game ke standar"
-                            className="text-[10px] bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-0.5 rounded border border-slate-700 font-medium transition-all cursor-pointer"
-                          >
-                            ↺ Reset
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Mode Tampilan Game: Fit Blur (Utuh) vs Cover (Crop) */}
-                      <div className="space-y-1.5">
-                        <div className="text-[11px] text-slate-400">Mode Format Layar Game:</div>
-                        <div className="grid grid-cols-2 gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setGameplayFitMode('fit_blur')}
-                            className={`p-2 rounded-xl border text-left text-xs transition-all cursor-pointer ${
-                              gameplayFitMode === 'fit_blur'
-                                ? 'bg-cyan-500/20 text-cyan-300 border-cyan-400/70 font-semibold shadow-sm shadow-cyan-500/10'
-                                : 'bg-[#0f172a] text-slate-400 border-slate-800 hover:text-white'
-                            }`}
-                          >
-                            <div className="font-bold flex items-center gap-1.5">
-                              <span>16:9 + Latar Blur</span>
-                              <span className="text-[9px] bg-cyan-400/20 text-cyan-300 px-1.5 py-0.2 rounded font-normal">Populer</span>
-                            </div>
-                            <div className="text-[10px] text-slate-400 mt-0.5">Layar game fleksibel dengan latar blur estetik</div>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setGameplayFitMode('cover')}
-                            className={`p-2 rounded-xl border text-left text-xs transition-all cursor-pointer ${
-                              gameplayFitMode === 'cover'
-                                ? 'bg-cyan-500/20 text-cyan-300 border-cyan-400/70 font-semibold shadow-sm shadow-cyan-500/10'
-                                : 'bg-[#0f172a] text-slate-400 border-slate-800 hover:text-white'
-                            }`}
-                          >
-                            <div className="font-bold">Zoom Penuh (Crop)</div>
-                            <div className="text-[10px] text-slate-400 mt-0.5">Mengisi seluruh frame tanpa latar blur</div>
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Kontrol Zoom Gameplay (Zoom In & Zoom Out) */}
-                      <div className="space-y-1.5 pt-1 border-t border-slate-800/80">
-                        <div className="flex justify-between text-[11px] text-slate-400">
-                          <span>Zoom Gameplay (Zoom In / Zoom Out):</span>
-                          <span className="text-cyan-300 font-mono font-bold">{gameplayZoom.toFixed(2)}x</span>
-                        </div>
-                        <input
-                          type="range"
-                          min="0.7"
-                          max="2.5"
-                          step="0.05"
-                          value={gameplayZoom}
-                          onChange={(e) => setGameplayZoom(parseFloat(e.target.value))}
-                          className="w-full accent-cyan-400 cursor-pointer"
-                        />
-                        <div className="flex justify-between text-[10px] text-slate-500 font-mono">
-                          <span>0.7x (Zoom Out)</span>
-                          <span className={gameplayZoom === 1.0 ? 'text-cyan-400 font-bold' : ''}>1.0x (Ukuran Asli)</span>
-                          <span>1.25x (Potong Banner)</span>
-                          <span>2.5x (Close-up)</span>
-                        </div>
-                      </div>
-
-                      {/* Preset Posisi Fokus Game Cepat */}
-                      <div className="space-y-1.5 pt-1">
-                        <div className="text-[11px] text-slate-400">Preset Posisi Layar Game Cepat:</div>
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                          {[
-                            { label: 'Tengah (Normal)', x: 0.5, y: 0.5, z: 1.0 },
-                            { label: 'Potong Banner Bawah', x: 0.5, y: 0.38, z: 1.25 },
-                            { label: 'Fokus Kiri (Hero)', x: 0.25, y: 0.5, z: 1.35 },
-                            { label: 'Fokus Kanan (Minimap)', x: 0.75, y: 0.5, z: 1.35 },
-                          ].map((preset, idx) => (
-                            <button
-                              key={idx}
-                              type="button"
-                              onClick={() => {
-                                setGameplayFocusX(preset.x);
-                                setGameplayFocusY(preset.y);
-                                setGameplayZoom(preset.z);
-                              }}
-                              className={`p-1.5 rounded-lg border text-center text-xs font-medium transition-all cursor-pointer ${
-                                Math.abs(gameplayFocusX - preset.x) < 0.05 && Math.abs(gameplayFocusY - preset.y) < 0.05 && Math.abs(gameplayZoom - preset.z) < 0.08
-                                  ? 'bg-cyan-500/20 text-cyan-300 border-cyan-400/60 font-semibold'
-                                  : 'bg-[#0f172a] text-slate-400 border-slate-800 hover:text-white'
+                    <div className="space-y-2">
+                      <div className="text-xs font-bold text-slate-300">Pilih Preset Animasi Subtitle</div>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {[
+                          { id: 'sorot', nama: 'Sorot Kuning', render: <span className="text-cyan-400 font-black uppercase text-[11px]"><span className="bg-cyan-400/20 px-1 rounded">TERNYATA</span> RAHASIANYA</span> },
+                          { id: 'pop', nama: 'Pop Kapital', render: <span className="text-cyan-300 font-extrabold uppercase text-[11px] tracking-wide">TERNYATA RAHASIANYA</span> },
+                          { id: 'terbaca', nama: 'Kotak Hitam', render: <span className="bg-black text-cyan-300 px-1.5 py-0.5 font-bold uppercase text-[10px] rounded">TERNYATA RAHASIANYA</span> },
+                          { id: 'minimal', nama: 'Minimal', render: <span className="text-white font-medium text-[11px]">Ternyata rahasianya</span> },
+                          { id: 'komik', nama: 'Komik Pop', render: <span className="text-emerald-400 font-black uppercase text-[11px] drop-shadow-[0_1px_1px_rgba(0,0,0,1)]">TERNYATA RAHASIANYA</span> },
+                          { id: 'neon', nama: 'Neon Glow', render: <span className="text-fuchsia-400 font-bold uppercase text-[11px] drop-shadow-[0_0_6px_rgba(232,121,249,0.9)]">TERNYATA RAHASIANYA</span> },
+                          { id: 'karaoke', nama: 'Karaoke', render: <span className="text-cyan-400 font-bold text-[11px]">TERNYATA <span className="text-white/60">RAHASIANYA</span></span> },
+                          { id: 'halus', nama: 'Halus Elegan', render: <span className="text-slate-200 font-light italic text-[11px]">ternyata rahasianya...</span> },
+                          { id: 'maliki', nama: 'Merek CalClip', render: <span className="text-cyan-400 font-mono font-bold text-[10px]">calclip::rahasia</span> },
+                          { id: 'lime', nama: 'Lime Box', render: <span className="bg-[#c6ff3d] text-black px-1.5 py-0.5 font-extrabold uppercase text-[10px] rounded">RAHASIANYA</span> },
+                          { id: 'elegan', nama: 'Serif Elegan', render: <span className="text-cyan-300 font-serif italic text-[11px]">Ternyata Rahasianya</span> },
+                          { id: 'sobek', nama: 'Kertas Sobek', render: <span className="bg-amber-100 text-black px-1.5 font-bold tracking-tight uppercase text-[10px]">TERNYATA</span> },
+                        ].map((p) => {
+                          const isChosen = activePreset === p.id;
+                          return (
+                            <div
+                              key={p.id}
+                              onClick={() => pilihPreset(p.id)}
+                              className={`p-2.5 rounded-xl border flex flex-col items-center justify-between h-20 text-center cursor-pointer transition-all ${
+                                isChosen
+                                  ? 'bg-cyan-950/30 border-cyan-400 ring-2 ring-cyan-400/40 shadow-md shadow-cyan-950/60'
+                                  : 'bg-[#0f172a]/70 border-slate-800 hover:border-slate-700'
                               }`}
                             >
-                              {preset.label}
+                              <div className="flex-1 flex items-center justify-center w-full px-1">
+                                {p.render}
+                              </div>
+                              <div className="text-[10px] font-semibold text-slate-400 truncate w-full pt-1 border-t border-slate-800/50">
+                                {p.nama}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="p-3.5 rounded-xl bg-[#0f172a]/70 border border-slate-800 space-y-3">
+                      <div className="text-xs font-bold text-slate-300">Pengaturan Font & Huruf</div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-[10px] font-mono text-slate-400 block mb-1">Pilihan Font</label>
+                          <select
+                            value={selectedFont}
+                            onChange={(e) => setSelectedFont(e.target.value)}
+                            className="w-full px-2.5 py-1.5 rounded-lg bg-[#070a12] border border-slate-800 text-xs text-white"
+                          >
+                            <option value="Archivo Black">Archivo Black</option>
+                            <option value="Anton">Anton (Tebal)</option>
+                            <option value="Bangers">Bangers (Komik)</option>
+                            <option value="Montserrat ExtraBold">Montserrat Bold</option>
+                            <option value="Space Grotesk">Space Grotesk</option>
+                            <option value="Georgia">Georgia (Serif)</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] font-mono text-slate-400 block mb-1">Model Huruf</label>
+                          <div className="flex gap-1 bg-[#070a12] p-0.5 rounded-lg border border-slate-800">
+                            {[
+                              { id: 'ABC', label: 'ABC' },
+                              { id: 'abc', label: 'abc' },
+                              { id: 'Asli', label: 'Asli' },
+                            ].map((c) => (
+                              <button
+                                key={c.id}
+                                type="button"
+                                onClick={() => setLetterCase(c.id as any)}
+                                className={`flex-1 py-1 rounded text-xs font-semibold cursor-pointer ${
+                                  letterCase === c.id ? 'bg-cyan-400 text-slate-950 font-bold' : 'text-slate-400'
+                                }`}
+                              >
+                                {c.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 pt-1">
+                        <div>
+                          <label className="text-[10px] font-mono text-slate-400 block mb-1">Ukuran Teks</label>
+                          <div className="flex gap-1 bg-[#070a12] p-0.5 rounded-lg border border-slate-800">
+                            {(['kecil', 'sedang', 'besar'] as const).map((s) => (
+                              <button
+                                key={s}
+                                type="button"
+                                onClick={() => setTextSize(s)}
+                                className={`flex-1 py-1 rounded text-xs capitalize cursor-pointer ${
+                                  textSize === s ? 'bg-cyan-400 text-slate-950 font-bold' : 'text-slate-400'
+                                }`}
+                              >
+                                {s}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] font-mono text-slate-400 block mb-1">Sorot Kata Kunci</label>
+                          <button
+                            type="button"
+                            onClick={() => setColorHighlight(!colorHighlight)}
+                            className={`w-full py-1.5 rounded-lg text-xs font-semibold border cursor-pointer ${
+                              colorHighlight
+                                ? 'bg-cyan-500/20 text-cyan-300 border-cyan-400/40'
+                                : 'bg-[#070a12] text-slate-400 border-slate-800'
+                            }`}
+                          >
+                            {colorHighlight ? 'Menyala (Aktif)' : 'Polos'}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Pilihan Warna Sorot Utama */}
+                      <div className="pt-1">
+                        <label className="text-[10px] font-mono text-slate-400 block mb-1.5">Warna Sorotan Kata (Viral Highlight)</label>
+                        <div className="grid grid-cols-4 gap-1.5">
+                          {[
+                            { label: 'Hijau Viral', color: '#3DFF8A' },
+                            { label: 'Kuning Emas', color: '#FFD400' },
+                            { label: 'Neon Cyan', color: '#00F5FF' },
+                            { label: 'Pink Neon', color: '#FF3388' },
+                          ].map((c) => (
+                            <button
+                              key={c.color}
+                              type="button"
+                              onClick={() => setHighlightColor(c.color)}
+                              className={`py-1 px-1 rounded-lg text-[10px] font-bold cursor-pointer transition-all ${
+                                highlightColor === c.color ? 'ring-2 ring-white scale-102 shadow-sm' : 'opacity-70 hover:opacity-100'
+                              }`}
+                              style={{ backgroundColor: `${c.color}25`, color: c.color, border: `1px solid ${c.color}` }}
+                            >
+                              {c.label}
                             </button>
                           ))}
                         </div>
                       </div>
 
-                      {/* Sliders Fine-Tuning Posisi Horizontal & Vertikal Gameplay */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                        <div className="space-y-1">
-                          <div className="flex justify-between text-[11px] text-slate-400">
-                            <span>Geser Horizontal (X - Kiri/Kanan):</span>
-                            <span className="text-cyan-300 font-mono">{Math.round(gameplayFocusX * 100)}%</span>
-                          </div>
-                          <input
-                            type="range"
-                            min="0.0"
-                            max="1.0"
-                            step="0.01"
-                            value={gameplayFocusX}
-                            onChange={(e) => setGameplayFocusX(parseFloat(e.target.value))}
-                            className="w-full accent-cyan-400 cursor-pointer"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <div className="flex justify-between text-[11px] text-slate-400">
-                            <span>Geser Vertikal (Y - Atas/Bawah):</span>
-                            <span className="text-cyan-300 font-mono">{Math.round(gameplayFocusY * 100)}%</span>
-                          </div>
-                          <input
-                            type="range"
-                            min="0.0"
-                            max="1.0"
-                            step="0.01"
-                            value={gameplayFocusY}
-                            onChange={(e) => setGameplayFocusY(parseFloat(e.target.value))}
-                            className="w-full accent-cyan-400 cursor-pointer"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Bagian 2: Kamera Facecam / Wajah Streamer */}
-                    <div className="bg-[#070b14]/80 border border-slate-800/80 rounded-xl p-3.5 space-y-3">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="font-semibold text-slate-200 flex items-center gap-1.5">
-                          <span className="text-cyan-400 font-bold">Kamera Streamer / Facecam</span> {layoutMode === 'atas_bawah' ? '(Bagian Atas)' : '(Kartu PiP)'}
-                        </span>
-                        <span className="text-[11px] text-cyan-400 font-mono font-bold bg-cyan-950/60 border border-cyan-800/50 px-2 py-0.5 rounded">
-                          Posisi ({Math.round(streamerFaceX * 100)}%, {Math.round(streamerFaceY * 100)}%) • Zoom {streamerFaceZoom.toFixed(1)}x
-                        </span>
-                      </div>
-
-                      {/* Tombol Sudut Preset (Sesuai posisi webcam di video asli) */}
-                      <div className="space-y-1.5">
-                        <div className="flex items-center justify-between text-[11px] text-slate-400">
-                          <span>Posisi Webcam di Sudut Video Asli:</span>
-                          <span className="text-[10px] text-cyan-300">Pilih sudut webcam Anda</span>
-                        </div>
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                          {[
-                            { label: '↙ Kiri Bawah (MLBB)', x: 0.10, y: 0.86, zoom: 2.4 },
-                            { label: '↘ Kanan Bawah', x: 0.88, y: 0.86, zoom: 2.4 },
-                            { label: '↖ Kiri Atas', x: 0.10, y: 0.18, zoom: 2.4 },
-                            { label: '↗ Kanan Atas', x: 0.88, y: 0.18, zoom: 2.4 },
-                          ].map((pos, idx) => {
-                            const isMatch = Math.abs(streamerFaceX - pos.x) < 0.12 && Math.abs(streamerFaceY - pos.y) < 0.15;
-                            return (
-                              <button
-                                key={idx}
-                                type="button"
-                                onClick={() => {
-                                  setStreamerFaceX(pos.x);
-                                  setStreamerFaceY(pos.y);
-                                  setStreamerFaceZoom(pos.zoom);
-                                }}
-                                className={`p-2 rounded-lg border text-center text-xs font-medium transition-all cursor-pointer ${
-                                  isMatch
-                                    ? 'bg-cyan-500/20 text-cyan-300 border-cyan-400/70 font-semibold'
-                                    : 'bg-[#0f172a] text-slate-400 border-slate-800 hover:text-white'
-                                }`}
-                              >
-                                {pos.label}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      {/* Pilihan Posisi Kartu PiP jika mode PiP aktif */}
-                      {layoutMode === 'pip' && (
-                        <div className="space-y-1.5 pt-2 border-t border-slate-800/80">
-                          <div className="text-[11px] text-slate-400">Posisi Kartu Mengambang PiP di Hasil Klip:</div>
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                            {[
-                              { id: 'kanan_atas', label: '↗ Kanan Atas' },
-                              { id: 'kiri_atas', label: '↖ Kiri Atas' },
-                              { id: 'kanan_bawah', label: '↘ Kanan Bawah' },
-                              { id: 'kiri_bawah', label: '↙ Kiri Bawah' },
-                            ].map((pos) => (
-                              <button
-                                key={pos.id}
-                                type="button"
-                                onClick={() => setPipPosition(pos.id as any)}
-                                className={`p-1.5 rounded-lg border text-xs font-medium transition-all cursor-pointer ${
-                                  pipPosition === pos.id
-                                    ? 'bg-cyan-500/20 text-cyan-300 border-cyan-400/60 font-semibold'
-                                    : 'bg-[#0f172a] text-slate-400 border-slate-800 hover:text-white'
-                                }`}
-                              >
-                                {pos.label}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Sliders Fine-Tuning Facecam: Posisi X, Posisi Y, Zoom */}
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-slate-800/80">
-                        <div className="space-y-1">
-                          <div className="flex justify-between text-[11px] text-slate-400">
-                            <span>Posisi Horizontal (X):</span>
-                            <span className="text-cyan-300 font-mono font-bold">{Math.round(streamerFaceX * 100)}%</span>
-                          </div>
-                          <input
-                            type="range"
-                            min="0.0"
-                            max="1.0"
-                            step="0.01"
-                            value={streamerFaceX}
-                            onChange={(e) => setStreamerFaceX(parseFloat(e.target.value))}
-                            className="w-full accent-cyan-400 cursor-pointer"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <div className="flex justify-between text-[11px] text-slate-400">
-                            <span>Posisi Vertikal (Y):</span>
-                            <span className="text-cyan-300 font-mono font-bold">{Math.round(streamerFaceY * 100)}%</span>
-                          </div>
-                          <input
-                            type="range"
-                            min="0.0"
-                            max="1.0"
-                            step="0.01"
-                            value={streamerFaceY}
-                            onChange={(e) => setStreamerFaceY(parseFloat(e.target.value))}
-                            className="w-full accent-cyan-400 cursor-pointer"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <div className="flex justify-between text-[11px] text-slate-400">
-                            <span>Zoom Wajah:</span>
-                            <span className="text-cyan-300 font-mono font-bold">{streamerFaceZoom.toFixed(1)}x</span>
-                          </div>
-                          <input
-                            type="range"
-                            min="1.0"
-                            max="3.5"
-                            step="0.1"
-                            value={streamerFaceZoom}
-                            onChange={(e) => setStreamerFaceZoom(parseFloat(e.target.value))}
-                            className="w-full accent-cyan-400 cursor-pointer"
-                          />
-                        </div>
-                      </div>
-
-                      {/* Tinggi Frame Wajah (Khusus Mode Atas-Bawah) */}
-                      {layoutMode === 'atas_bawah' && (
-                        <div className="space-y-1 pt-1">
-                          <div className="flex justify-between text-[11px] text-slate-400">
-                            <span>Tinggi Frame Facecam Atas:</span>
-                            <span className="text-cyan-300 font-mono font-bold">{streamerFaceHeight}%</span>
-                          </div>
-                          <input
-                            type="range"
-                            min="30"
-                            max="55"
-                            step="1"
-                            value={streamerFaceHeight}
-                            onChange={(e) => setStreamerFaceHeight(parseInt(e.target.value, 10))}
-                            className="w-full accent-cyan-400 cursor-pointer"
-                          />
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Bagian 3: Bar Pemisah & Teks Sponsor / Watermark (Khusus Atas-Bawah) */}
-                    {layoutMode === 'atas_bawah' && (
-                      <div className="bg-[#070b14]/80 border border-slate-800/80 rounded-xl p-3.5 space-y-2">
-                        <div className="text-xs font-semibold text-slate-200">
-                          Teks Pemisah / Sponsor (Opsional):
+                      {/* Posisi Vertikal & Fitur Teks */}
+                      <div className="pt-2 border-t border-slate-800/80 space-y-2">
+                        <div className="flex justify-between text-[11px] text-slate-400">
+                          <span>Posisi Vertikal Subtitle</span>
+                          <span className="font-mono text-cyan-400">{verticalPos}%</span>
                         </div>
                         <input
-                          type="text"
-                          placeholder="mis. OURA / @streamer / CalClip.IN (kosongkan untuk garis minimal)"
-                          value={dividerText}
-                          onChange={(e) => setDividerText(e.target.value)}
-                          className="w-full bg-[#0f172a] border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500"
+                          type="range"
+                          min={20}
+                          max={90}
+                          value={verticalPos}
+                          onChange={(e) => setVerticalPos(Number(e.target.value))}
+                          className="w-full accent-cyan-400 cursor-pointer h-1.5 bg-slate-800 rounded-lg"
                         />
-                      </div>
-                    )}
-
-                    {/* Bagian 4: Tombol Cepat Subtitle */}
-                    <div className="bg-[#070b14]/80 border border-slate-800/80 rounded-xl p-3.5 flex flex-wrap items-center justify-between gap-2">
-                      <div className="text-xs text-slate-300">
-                        <span className="font-semibold text-slate-200">Posisi Subtitle:</span> Saat ini ({verticalPos}%)
-                      </div>
-                      <div className="flex gap-2">
-                        {layoutMode === 'atas_bawah' && (
-                          <button
-                            type="button"
-                            onClick={() => setVerticalPos(Math.max(35, streamerFaceHeight - 3))}
-                            className="px-2.5 py-1.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-xs font-semibold transition-all cursor-pointer"
-                          >
-                            Pasang di Garis Pembatas (Gaya Streamer)
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => setVerticalPos(72)}
-                          className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition-all cursor-pointer"
-                        >
-                          Bawah (72%)
-                        </button>
+                        <div className="flex items-center justify-between text-xs pt-1">
+                          <label className="flex items-center gap-1.5 text-slate-300 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={autoEmoji}
+                              onChange={(e) => setAutoEmoji(e.target.checked)}
+                              className="accent-cyan-400 w-3.5 h-3.5 rounded"
+                            />
+                            <span>Emoji Otomatis</span>
+                          </label>
+                          <label className="flex items-center gap-1.5 text-slate-300 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={sensorKataKasar}
+                              onChange={(e) => setSensorKataKasar(e.target.checked)}
+                              className="accent-cyan-400 w-3.5 h-3.5 rounded"
+                            />
+                            <span>Sensor Kasar</span>
+                          </label>
+                          <label className="flex items-center gap-1.5 text-slate-300 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={paksaCpu}
+                              onChange={(e) => setPaksaCpu(e.target.checked)}
+                              className="accent-cyan-400 w-3.5 h-3.5 rounded"
+                            />
+                            <span>Paksa CPU</span>
+                          </label>
+                        </div>
                       </div>
                     </div>
                   </div>
                 )}
 
-                {/* Panel Pengaturan Khusus: Split Podcast (2 Orang) */}
-                {layoutMode === 'split' && (
-                  <div id="sec-podcast" className="bg-[#0b1329]/90 border border-cyan-500/30 rounded-2xl p-5 space-y-4 shadow-lg shadow-cyan-950/20 scroll-mt-16">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-                        <span className="text-xs font-bold text-cyan-300">Pengaturan Split Podcast (2 Orang)</span>
-                      </div>
-                      <span className="text-[10px] bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 px-2 py-0.5 rounded-md font-mono">
-                        Atas & Bawah
-                      </span>
+                {/* TAB 2: TEKS & TRANSKRIP */}
+                {editorActiveTab === 'teks' && (
+                  <div className="space-y-3.5 animate-fadeIn">
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-slate-300 block">Judul Klip (Hook Teks Atas)</label>
+                      <input
+                        type="text"
+                        value={editTitleInput}
+                        onChange={(e) => setEditTitleInput(e.target.value)}
+                        placeholder="Judul klip..."
+                        className="w-full px-3 py-2 rounded-xl bg-[#070a12] border border-slate-800 text-xs text-white focus:outline-none focus:border-cyan-400"
+                      />
                     </div>
 
-                    {/* Bagian 1: Posisi Kedua Pembicara */}
-                    <div className="bg-[#070b14]/80 border border-slate-800/80 rounded-xl p-3.5 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold text-slate-200">
-                          Posisi Pembicara di Video Asli (16:9):
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-slate-300 block">Transkrip Kutipan Perkataan</label>
+                      <textarea
+                        rows={5}
+                        value={editQuoteInput}
+                        onChange={(e) => setEditQuoteInput(e.target.value)}
+                        placeholder="Kutipan perkataan di klip..."
+                        className="w-full px-3 py-2 rounded-xl bg-[#070a12] border border-slate-800 text-xs text-white focus:outline-none focus:border-cyan-400 leading-relaxed"
+                      />
+                    </div>
+
+                    {/* Word-by-Word Click Highlighter (CapCut / Submagic Style) */}
+                    <div className="p-3 rounded-xl bg-[#070a12] border border-slate-800 space-y-2.5">
+                      <div className="flex items-center justify-between text-xs font-bold text-slate-300">
+                        <span className="flex items-center gap-1.5">
+                          <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+                          <span>Klik Kata untuk Sorot & Pasang Emoji</span>
                         </span>
-                        <button
-                          type="button"
-                          onClick={() => setPodcastSwap(!podcastSwap)}
-                          className={`px-3 py-1 rounded-lg border text-xs font-bold transition-all flex items-center gap-1.5 ${
-                            podcastSwap
-                              ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
-                              : 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40 hover:bg-cyan-500/30'
-                          }`}
-                        >
-                          ⇄ {podcastSwap ? 'Terswap: Orang 2 di Atas' : 'Tukar Posisi Atas ⇄ Bawah'}
-                        </button>
+                        <span className="text-[10px] font-mono text-cyan-400">Word Inspector</span>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                        <div className="space-y-1">
-                          <div className="flex justify-between text-[11px] text-slate-400">
-                            <span>{podcastSwap ? 'Pembicara Bawah (Kiri):' : 'Pembicara Atas (Kiri):'}</span>
-                            <span className="text-cyan-300 font-mono font-bold">{Math.round(podcastP1X * 100)}%</span>
-                          </div>
-                          <input
-                            type="range"
-                            min="0.1"
-                            max="0.5"
-                            step="0.02"
-                            value={podcastP1X}
-                            onChange={(e) => setPodcastP1X(parseFloat(e.target.value))}
-                            className="w-full accent-cyan-400 cursor-pointer"
-                          />
-                          <div className="flex justify-between text-[10px] text-slate-400 font-mono">
-                            <span>10% (Kiri Jauh)</span>
-                            <span>28% (Standar Host)</span>
-                            <span>50% (Tengah)</span>
-                          </div>
-                        </div>
+                      <div className="flex flex-wrap gap-1.5 p-2 rounded-lg bg-slate-950/70 border border-slate-800/80 max-h-36 overflow-y-auto">
+                        {editQuoteInput.split(/\s+/).filter(Boolean).map((word, idx) => {
+                          const clean = word.toLowerCase().replace(/[^a-z0-9]/g, '');
+                          const isSelected = selectedWordForEdit === clean;
+                          const custom = customWordStyles[clean];
+                          const autoEm = getEmojiForWord(clean);
+                          const activeEmoji = custom?.emoji || autoEm;
+                          const activeColor = custom?.color || getSentimentColor(clean, '');
 
-                        <div className="space-y-1">
-                          <div className="flex justify-between text-[11px] text-slate-400">
-                            <span>{podcastSwap ? 'Pembicara Atas (Kanan):' : 'Pembicara Bawah (Kanan):'}</span>
-                            <span className="text-cyan-300 font-mono font-bold">{Math.round(podcastP2X * 100)}%</span>
-                          </div>
-                          <input
-                            type="range"
-                            min="0.5"
-                            max="0.9"
-                            step="0.02"
-                            value={podcastP2X}
-                            onChange={(e) => setPodcastP2X(parseFloat(e.target.value))}
-                            className="w-full accent-cyan-400 cursor-pointer"
-                          />
-                          <div className="flex justify-between text-[10px] text-slate-400 font-mono">
-                            <span>50% (Tengah)</span>
-                            <span>72% (Standar Tamu)</span>
-                            <span>90% (Kanan Jauh)</span>
-                          </div>
-                        </div>
+                          return (
+                            <button
+                              key={`${clean}-${idx}`}
+                              type="button"
+                              onClick={() => setSelectedWordForEdit(isSelected ? null : clean)}
+                              className={`px-2 py-1 rounded text-xs font-medium flex items-center gap-1 transition-all cursor-pointer ${
+                                isSelected
+                                  ? 'ring-2 ring-cyan-400 bg-cyan-950 text-white font-bold'
+                                  : activeColor
+                                  ? 'border font-bold'
+                                  : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800/60'
+                              }`}
+                              style={
+                                activeColor
+                                  ? { backgroundColor: `${activeColor}20`, borderColor: activeColor, color: activeColor }
+                                  : undefined
+                              }
+                            >
+                              {activeEmoji && <span className="text-xs">{activeEmoji}</span>}
+                              <span>{word}</span>
+                            </button>
+                          );
+                        })}
                       </div>
-                    </div>
 
-                    {/* Bagian 2: Zoom & Proporsi Split */}
-                    <div className="bg-[#070b14]/80 border border-slate-800/80 rounded-xl p-3.5 space-y-3">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div className="space-y-1">
-                          <div className="flex justify-between text-[11px] text-slate-400">
-                            <span>Zoom Wajah Pembicara:</span>
-                            <span className="text-cyan-300 font-mono font-bold">{podcastZoom.toFixed(2)}x</span>
+                      {/* Floating Mini Action Toolbar */}
+                      {selectedWordForEdit && (
+                        <div className="p-2.5 rounded-lg bg-[#0b0f19] border border-cyan-500/40 space-y-2 animate-fadeIn">
+                          <div className="flex items-center justify-between text-[11px] font-mono text-cyan-300">
+                            <span>Kustomisasi: <strong>"{selectedWordForEdit}"</strong></span>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedWordForEdit(null)}
+                              className="text-slate-400 hover:text-white cursor-pointer text-xs"
+                            >
+                              ✕
+                            </button>
                           </div>
-                          <input
-                            type="range"
-                            min="1.0"
-                            max="1.8"
-                            step="0.05"
-                            value={podcastZoom}
-                            onChange={(e) => setPodcastZoom(parseFloat(e.target.value))}
-                            className="w-full accent-cyan-400 cursor-pointer"
-                          />
-                        </div>
 
-                        <div className="space-y-1.5">
-                          <div className="text-[11px] text-slate-400">Pembagian Layar (Rasio):</div>
-                          <div className="grid grid-cols-3 gap-1.5">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-[10px] text-slate-400 font-mono">Warna:</span>
                             {[
-                              { label: '50 : 50', val: 50 },
-                              { label: '45 : 55', val: 45 },
-                              { label: '55 : 45', val: 55 },
-                            ].map((ratio) => (
+                              { label: 'Hijau', color: '#3DFF8A' },
+                              { label: 'Kuning', color: '#FFD400' },
+                              { label: 'Merah', color: '#FF453A' },
+                              { label: 'Cyan', color: '#00F5FF' },
+                            ].map((c) => (
                               <button
-                                key={ratio.val}
+                                key={c.color}
                                 type="button"
-                                onClick={() => setPodcastSplitRatio(ratio.val)}
-                                className={`p-1.5 rounded-lg border text-[11px] font-medium transition-all ${
-                                  podcastSplitRatio === ratio.val
-                                    ? 'bg-cyan-500/20 text-cyan-300 border-cyan-400/60 font-semibold'
-                                    : 'bg-[#0f172a] text-slate-400 border-slate-800 hover:text-white'
-                                }`}
+                                onClick={() => {
+                                  setCustomWordStyles((prev) => ({
+                                    ...prev,
+                                    [selectedWordForEdit]: { ...prev[selectedWordForEdit], color: c.color },
+                                  }));
+                                }}
+                                className="px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer"
+                                style={{ backgroundColor: `${c.color}25`, color: c.color, border: `1px solid ${c.color}` }}
                               >
-                                {ratio.label}
+                                {c.label}
                               </button>
                             ))}
+
+                            <span className="text-[10px] text-slate-400 font-mono ml-1">Emoji:</span>
+                            {['👻', '🔥', '💰', '💡', '⚠️', '✅', '❌', '😂', '😱', '💪'].map((em) => (
+                              <button
+                                key={em}
+                                type="button"
+                                onClick={() => {
+                                  setCustomWordStyles((prev) => ({
+                                    ...prev,
+                                    [selectedWordForEdit]: { ...prev[selectedWordForEdit], emoji: em },
+                                  }));
+                                }}
+                                className="text-xs p-0.5 hover:scale-125 transition-transform cursor-pointer"
+                              >
+                                {em}
+                              </button>
+                            ))}
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setCustomWordStyles((prev) => {
+                                  const copy = { ...prev };
+                                  delete copy[selectedWordForEdit];
+                                  return copy;
+                                });
+                                setSelectedWordForEdit(null);
+                              }}
+                              className="text-[10px] text-slate-400 hover:text-red-400 underline ml-auto cursor-pointer"
+                            >
+                              Reset
+                            </button>
                           </div>
                         </div>
-                      </div>
+                      )}
                     </div>
 
-                    {/* Bagian 3: Tombol Cepat Subtitle di Garis Tengah */}
-                    <div className="bg-[#070b14]/80 border border-slate-800/80 rounded-xl p-3.5 flex flex-wrap items-center justify-between gap-2">
-                      <div className="text-xs text-slate-300">
-                        💬 <span className="font-semibold text-slate-200">Posisi Subtitle:</span> Saat ini ({verticalPos}%)
-                      </div>
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setVerticalPos(50)}
-                          className="px-2.5 py-1.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-xs font-semibold transition-all"
-                        >
-                          📌 Pasang di Garis Tengah (Gaya Podcast)
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setVerticalPos(72)}
-                          className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition-all"
-                        >
-                          Bawah (72%)
-                        </button>
-                      </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-slate-300 block">Caption / Deskripsi Media Sosial</label>
+                      <input
+                        type="text"
+                        value={editCaptionInput}
+                        onChange={(e) => setEditCaptionInput(e.target.value)}
+                        placeholder="Caption klip..."
+                        className="w-full px-3 py-2 rounded-xl bg-[#070a12] border border-slate-800 text-xs text-white focus:outline-none focus:border-cyan-400"
+                      />
                     </div>
 
-                    {/* Bagian 4: Transisi Cerdas Shot 1 Orang ⇄ 2 Layar (Split) */}
-                    <div className="bg-[#070b14]/80 border border-slate-800/80 rounded-xl p-3.5 space-y-3">
-                      <div className="flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!activeClip) return;
+                        setClips((prev) =>
+                          prev.map((c) =>
+                            c.id === activeClip.id
+                              ? {
+                                  ...c,
+                                  title: editTitleInput.trim() || c.title,
+                                  quote: editQuoteInput.trim() || c.quote,
+                                  caption: editCaptionInput.trim() || c.caption,
+                                }
+                              : c
+                          )
+                        );
+                        setShowSavedToast(true);
+                        setTimeout(() => setShowSavedToast(false), 2000);
+                      }}
+                      className="w-full py-2.5 rounded-xl bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-bold text-xs shadow-md transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <Check className="w-4 h-4" />
+                      <span>Simpan Perubahan Teks</span>
+                    </button>
+                  </div>
+                )}
+
+                {/* TAB 3: HOOK BANNER */}
+                {editorActiveTab === 'hook' && (() => {
+                  const activeKey = String(activeClip?.id || '0');
+                  const currentMainHook = customHooksByClip[activeKey] ?? (activeClip?.title || '');
+                  const previewFull = getFullHookText(currentMainHook, bannerPrefix, bannerSuffix);
+
+                  return (
+                    <div className="space-y-3.5 animate-fadeIn">
+                      <div className="flex items-center justify-between p-3 rounded-xl bg-[#0f172a]/70 border border-slate-800">
                         <div className="space-y-0.5">
-                          <div className="text-xs font-bold text-white flex items-center gap-1.5">
-                            <span>⚡ Transisi Otomatis (Smart Auto-Switch):</span>
-                            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                              Aktif
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-slate-400 max-w-lg leading-relaxed">
-                            Bila video asli menyorot 1 orang (single shot), klip otomatis 9:16 penuh ke 1 orang tersebut. Saat video asli menyorot 2 orang sekaligus, otomatis transisi ke 2 layar (atas &amp; bawah).
-                          </p>
+                          <div className="text-xs font-bold text-white">Banner Hook Atas</div>
+                          <div className="text-[10px] text-slate-400">Judul pemikat di bagian atas video</div>
                         </div>
-                        <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => setHasHookBanner(!hasHookBanner)}
+                          className={`w-11 h-6 rounded-full transition-colors relative cursor-pointer ${
+                            hasHookBanner ? 'bg-cyan-400' : 'bg-slate-700'
+                          }`}
+                        >
+                          <span
+                            className={`block w-4 h-4 rounded-full bg-slate-950 transition-transform ${
+                              hasHookBanner ? 'translate-x-6' : 'translate-x-1'
+                            }`}
+                          />
+                        </button>
+                      </div>
+
+                      {hasHookBanner && (
+                        <div className="space-y-3.5 p-3.5 rounded-xl bg-[#0f172a]/70 border border-slate-800 shadow-md">
+                          {/* Gaya Tampilan Banner */}
+                          <div>
+                            <label className="text-[10px] font-mono text-slate-400 block mb-1">Gaya Tampilan Banner</label>
+                            <div className="grid grid-cols-2 gap-2">
+                              {[
+                                { id: 'Kotak kuning', label: 'Kotak Kuning' },
+                                { id: 'Pita kertas', label: 'Pita Kertas' },
+                                { id: 'Neon pink', label: 'Neon Pink' },
+                                { id: 'Minimal', label: 'Minimal Polos' },
+                              ].map((b) => (
+                                <button
+                                  key={b.id}
+                                  type="button"
+                                  onClick={() => setIntroStyle(b.id)}
+                                  className={`p-2 rounded-lg text-xs font-semibold border cursor-pointer transition-all ${
+                                    introStyle === b.id
+                                      ? 'bg-cyan-500/20 text-cyan-300 border-cyan-400/50 font-bold shadow-sm'
+                                      : 'bg-[#070a12] text-slate-400 border-slate-800 hover:text-white hover:border-slate-700'
+                                  }`}
+                                >
+                                  {b.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Kalimat / Teks Hook Bebas Kustom */}
+                          <div className="space-y-1.5 pt-1">
+                            <div className="flex items-center justify-between">
+                              <label className="text-[11px] font-bold text-white flex items-center gap-1.5">
+                                <span className="w-2 h-2 rounded-full bg-cyan-400" />
+                                <span>Teks Kalimat Hook</span>
+                              </label>
+                              {customHooksByClip[activeKey] !== undefined && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setCustomHooksByClip((prev) => {
+                                      const next = { ...prev };
+                                      delete next[activeKey];
+                                      return next;
+                                    });
+                                  }}
+                                  className="text-[10px] text-cyan-400 hover:text-cyan-300 cursor-pointer font-medium underline"
+                                >
+                                  Reset ke Judul AI
+                                </button>
+                              )}
+                            </div>
+                            <textarea
+                              rows={2}
+                              value={currentMainHook}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setCustomHooksByClip((prev) => {
+                                  const updated = { ...prev, [activeKey]: val };
+                                  customHooksByClipRef.current = updated;
+                                  return updated;
+                                });
+                                setClips((prev) =>
+                                  prev.map((c) =>
+                                    c.id === activeClip?.id ? { ...c, title: val } : c
+                                  )
+                                );
+                              }}
+                              placeholder="Tulis kalimat pemikat/hook video kamu di sini..."
+                              className="w-full px-3 py-2 rounded-xl bg-[#070a12] border border-slate-800 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-cyan-400 leading-relaxed resize-none shadow-inner"
+                            />
+                            <div className="text-[10px] text-slate-500 flex justify-between">
+                              <span>Bebas kamu ubah sesuai selera (tidak terbatas teks AI).</span>
+                              <span>{currentMainHook.length} huruf</span>
+                            </div>
+                          </div>
+
+                          {/* Teks Awalan & Akhiran Opsional */}
+                          <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-800/60">
+                            <div>
+                              <label className="text-[10px] text-slate-400 block mb-1">Teks Depan (Awalan)</label>
+                              <input
+                                type="text"
+                                value={bannerPrefix}
+                                onChange={(e) => setBannerPrefix(e.target.value)}
+                                placeholder="misal: TAHUKAH KAMU"
+                                className="w-full px-2.5 py-1.5 rounded-lg bg-[#070a12] border border-slate-800 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-cyan-400"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[10px] text-slate-400 block mb-1">Teks Belakang (Akhiran)</label>
+                              <input
+                                type="text"
+                                value={bannerSuffix}
+                                onChange={(e) => setBannerSuffix(e.target.value)}
+                                placeholder="misal: VIRAL BANGET"
+                                className="w-full px-2.5 py-1.5 rounded-lg bg-[#070a12] border border-slate-800 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-cyan-400"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Hasil Pratinjau Teks Banner Utuh */}
+                          <div className="p-2.5 rounded-xl bg-[#070a12] border border-slate-800 text-[11px] space-y-1">
+                            <span className="text-slate-500 text-[10px] font-mono block">Hasil Teks Banner (Otomatis Diberi Spasi Rapi):</span>
+                            <div className="text-cyan-300 font-bold uppercase tracking-tight leading-snug">
+                              {previewFull || '(Teks hook kosong)'}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between pt-1 text-xs">
+                            <span className="text-slate-300">Tampil hanya 3 detik pertama (Hook Intro)</span>
+                            <input
+                              type="checkbox"
+                              checked={introHook3s}
+                              onChange={(e) => setIntroHook3s(e.target.checked)}
+                              className="accent-cyan-400 w-4 h-4 cursor-pointer"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* TAB 4: LAYOUT & KAMERA */}
+                {editorActiveTab === 'layout' && (
+                  <div className="space-y-3.5 animate-fadeIn">
+                    <div className="space-y-2">
+                      <div className="text-xs font-bold text-slate-300">Kanvas & Rasio Isi</div>
+                      <div className="grid grid-cols-2 gap-2">
+                        {[
+                          { id: '9:16', label: '9:16 Penuh', sub: 'TikTok/Reels' },
+                          { id: '1:1', label: '1:1 Kotak', sub: 'Instagram Feed' },
+                          { id: '4:3', label: '4:3 Klasik', sub: 'Tablet/Standard' },
+                          { id: '16:9', label: '16:9 Lebar', sub: 'YouTube Widescreen' },
+                        ].map((r) => (
+                          <button
+                            key={r.id}
+                            type="button"
+                            onClick={() => setCanvasRatio(r.id as any)}
+                            className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                              canvasRatio === r.id
+                                ? 'bg-cyan-950/30 border-cyan-400 text-cyan-300 ring-1 ring-cyan-400/40'
+                                : 'bg-[#070a12] border-slate-800 text-slate-400 hover:text-white'
+                            }`}
+                          >
+                            <div className="text-xs font-bold">{r.label}</div>
+                            <div className="text-[10px] text-slate-500">{r.sub}</div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-1">
+                      <span className="text-xs text-slate-400 font-medium">Bentuk Bingkai Kanvas:</span>
+                      <div className="flex gap-1 bg-[#070a12] p-0.5 rounded-lg border border-slate-800 text-xs">
+                        <button
+                          type="button"
+                          onClick={() => setCanvasFrameMode('asli')}
+                          className={`px-2.5 py-1 rounded cursor-pointer ${
+                            canvasFrameMode === 'asli' ? 'bg-cyan-400 text-slate-950 font-bold' : 'text-slate-400'
+                          }`}
+                        >
+                          Pas Rasio
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCanvasFrameMode('9:16_letterbox')}
+                          className={`px-2.5 py-1 rounded cursor-pointer ${
+                            canvasFrameMode === '9:16_letterbox' ? 'bg-cyan-400 text-slate-950 font-bold' : 'text-slate-400'
+                          }`}
+                        >
+                          Bingkai 9:16
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 pt-2 border-t border-slate-800/80">
+                      <div className="text-xs font-bold text-slate-300">Mode Layout Kamera</div>
+                      <div className="grid grid-cols-1 gap-1.5">
+                        {[
+                          { id: 'podcast_auto', label: 'Podcast 1 Layar (Auto Pembicara)' },
+                          { id: 'split', label: 'Split Podcast (2 Layar)' },
+                          { id: 'satu', label: 'Satu video biasa (Solo)' },
+                          { id: 'atas_bawah', label: 'Wajah atas • Layar gameplay bawah' },
+                          { id: 'pip', label: 'Wajah di pojok (PiP Game)' },
+                        ].map((l) => (
+                          <button
+                            key={l.id}
+                            type="button"
+                            onClick={() => {
+                              setLayoutMode(l.id as any);
+                              if (l.id === 'split') setPodcastPreviewShot('split');
+                            }}
+                            className={`p-2 px-3 rounded-xl border text-left text-xs font-semibold transition-all cursor-pointer ${
+                              layoutMode === l.id
+                                ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300'
+                                : 'bg-[#070a12] border-slate-800 text-slate-400 hover:text-white'
+                            }`}
+                          >
+                            {l.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Titik Fokus Horizontal */}
+                    <div className="space-y-1.5 pt-1">
+                      <div className="text-[11px] text-slate-400">Titik Fokus Kamera:</div>
+                      <div className="grid grid-cols-4 gap-1.5">
+                        {[
+                          { id: 'otomatis', label: 'Otomatis' },
+                          { id: 'kiri', label: 'Kiri' },
+                          { id: 'tengah', label: 'Tengah' },
+                          { id: 'kanan', label: 'Kanan' },
+                        ].map((f) => (
+                          <button
+                            key={f.id}
+                            type="button"
+                            onClick={() => setFocusPoint(f.id as any)}
+                            className={`py-1 rounded text-xs font-semibold border cursor-pointer ${
+                              focusPoint === f.id
+                                ? 'bg-cyan-500/20 text-cyan-300 border-cyan-400/50'
+                                : 'bg-[#070a12] text-slate-400 border-slate-800'
+                            }`}
+                          >
+                            {f.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {layoutMode === 'split' && (
+                      <div className="p-3 rounded-xl bg-[#0f172a]/70 border border-slate-800 space-y-2.5 text-xs">
+                        <div className="flex items-center justify-between font-bold text-slate-300">
+                          <span>Pengaturan Split Podcast</span>
+                          <button
+                            type="button"
+                            onClick={() => setPodcastSwap(!podcastSwap)}
+                            className="text-[10px] text-cyan-400 border border-cyan-400/40 px-2 py-0.5 rounded cursor-pointer"
+                          >
+                            Tukar Pembicara {podcastSwap ? '(P2/P1)' : '(P1/P2)'}
+                          </button>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={handleDetectPodcast}
+                            disabled={isDetectingPodcast}
+                            className="flex-1 py-1.5 rounded-lg bg-cyan-950/60 border border-cyan-800 text-cyan-300 text-xs font-semibold flex items-center justify-center gap-1 cursor-pointer"
+                          >
+                            {isDetectingPodcast ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                            <span>Deteksi Wajah Otomatis</span>
+                          </button>
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-mono text-slate-400 block mb-1">
+                            Zoom Kamera Pembicara ({podcastZoom.toFixed(1)}x)
+                          </label>
+                          <input
+                            type="range"
+                            min={1.0}
+                            max={2.0}
+                            step={0.05}
+                            value={podcastZoom}
+                            onChange={(e) => setPodcastZoom(Number(e.target.value))}
+                            className="w-full accent-cyan-400 cursor-pointer h-1.5 bg-slate-800 rounded-lg"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-mono text-slate-400 block mb-1">
+                            Rasio Split Atas/Bawah ({podcastSplitRatio}% : {100 - podcastSplitRatio}%)
+                          </label>
+                          <input
+                            type="range"
+                            min={35}
+                            max={65}
+                            value={podcastSplitRatio}
+                            onChange={(e) => setPodcastSplitRatio(Number(e.target.value))}
+                            className="w-full accent-cyan-400 cursor-pointer h-1.5 bg-slate-800 rounded-lg"
+                          />
+                        </div>
+                        <div className="flex items-center justify-between pt-1">
+                          <span className="text-[11px] text-slate-300">Transisi Otomatis 1 Orang ⇄ 2 Layar</span>
                           <input
                             type="checkbox"
                             checked={podcastAutoTransition}
                             onChange={(e) => setPodcastAutoTransition(e.target.checked)}
-                            className="sr-only peer"
+                            className="accent-cyan-400 w-3.5 h-3.5 cursor-pointer"
                           />
-                          <div className="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-cyan-500"></div>
-                        </label>
-                      </div>
-
-                      {/* Tombol Pratinjau Player (Shot 2 Orang vs Shot 1 Orang vs Otomatis) */}
-                      <div className="pt-2 flex flex-wrap items-center justify-between gap-2 border-t border-slate-800/80">
-                        <span className="text-[11px] text-slate-400 font-medium">Mode Pratinjau Layar HP:</span>
-                        <div className="grid grid-cols-3 gap-1.5 w-full sm:w-auto">
-                          <button
-                            type="button"
-                            onClick={() => setPodcastPreviewShot('auto')}
-                            className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all text-center ${
-                              podcastPreviewShot === 'auto'
-                                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/60 font-bold shadow-sm'
-                                : 'bg-slate-800/80 text-slate-400 hover:text-white border border-slate-700'
-                            }`}
-                          >
-                            ⚡ Otomatis
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setPodcastPreviewShot('single')}
-                            className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all text-center ${
-                              podcastPreviewShot === 'single'
-                                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/60 font-bold shadow-sm'
-                                : 'bg-slate-800/80 text-slate-400 hover:text-white border border-slate-700'
-                            }`}
-                          >
-                            👤 Shot 1 Orang
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setPodcastPreviewShot('split')}
-                            className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all text-center ${
-                              podcastPreviewShot === 'split'
-                                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/60 font-bold shadow-sm'
-                                : 'bg-slate-800/80 text-slate-400 hover:text-white border border-slate-700'
-                            }`}
-                          >
-                            👥 Shot 2 Orang
-                          </button>
                         </div>
                       </div>
+                    )}
 
-                      {/* Slider & Presets Posisi Fokus Saat Shot 1 Orang (9:16 Penuh) */}
-                      <div className="pt-2 border-t border-slate-800/80 space-y-2">
-                        <div className="flex items-center justify-between text-[11px]">
-                          <span className="text-slate-300 font-semibold">🎯 Posisi Fokus Saat Shot 1 Orang (Solo):</span>
-                          <span className="text-cyan-300 font-mono font-bold">{Math.round(podcastSingleFocusX * 100)}%</span>
+                    {layoutMode === 'podcast_auto' && (
+                      <div className="p-3 rounded-xl bg-[#0f172a]/70 border border-slate-800 space-y-2 text-xs">
+                        <div className="flex justify-between text-slate-300 font-bold">
+                          <span>Fokus Solo / Single Speaker</span>
+                          <span className="font-mono text-cyan-400">X: {podcastSingleFocusX.toFixed(2)}</span>
                         </div>
                         <input
                           type="range"
-                          min="0.20"
-                          max="0.80"
-                          step="0.01"
+                          min={0.1}
+                          max={0.9}
+                          step={0.02}
                           value={podcastSingleFocusX}
-                          onChange={(e) => {
-                            setPodcastSingleFocusX(parseFloat(e.target.value));
-                            setPodcastPreviewShot('single');
-                          }}
-                          className="w-full accent-cyan-400 cursor-pointer"
+                          onChange={(e) => setPodcastSingleFocusX(Number(e.target.value))}
+                          className="w-full accent-cyan-400 cursor-pointer h-1.5 bg-slate-800 rounded-lg"
                         />
-                        <div className="flex justify-between gap-1.5 text-[10px]">
+                      </div>
+                    )}
+
+                    {(layoutMode === 'atas_bawah' || layoutMode === 'pip') && (
+                      <div className="space-y-3 text-xs">
+                        {/* KARTU 1: KAMERA WAJAH / FACECAM STREAMER */}
+                        <div className="p-3.5 rounded-xl bg-[#0f172a]/80 border border-slate-800 space-y-3 shadow-md">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className="w-2 h-2 rounded-full bg-cyan-400"></span>
+                              <span className="font-bold text-white text-[12px]">Kamera Wajah / Facecam</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={handleDetectFacecam}
+                              disabled={isDetectingFacecam}
+                              className="text-[10px] text-cyan-400 hover:text-cyan-300 border border-cyan-400/40 hover:border-cyan-400 px-2.5 py-1 rounded-lg cursor-pointer flex items-center gap-1.5 transition-all bg-cyan-950/20"
+                            >
+                              {isDetectingFacecam ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                              <span>Deteksi Otomatis</span>
+                            </button>
+                          </div>
+
+                          {/* Preset Sudut Cepat */}
+                          <div>
+                            <span className="text-[10px] text-slate-400 block mb-1.5 font-medium">Preset Sudut Cepat:</span>
+                            <div className="grid grid-cols-5 gap-1 text-[10px]">
+                              {[
+                                { id: 'kb', label: 'Kiri Bwh', x: 0.10, y: 0.86 },
+                                { id: 'nb', label: 'Kanan Bwh', x: 0.88, y: 0.86 },
+                                { id: 'ka', label: 'Kiri Atas', x: 0.10, y: 0.18 },
+                                { id: 'na', label: 'Kanan Atas', x: 0.88, y: 0.18 },
+                                { id: 'tg', label: 'Tengah', x: 0.50, y: 0.50 },
+                              ].map((pst) => {
+                                const isAktif = Math.abs(streamerFaceX - pst.x) < 0.05 && Math.abs(streamerFaceY - pst.y) < 0.05;
+                                return (
+                                  <button
+                                    key={pst.id}
+                                    type="button"
+                                    onClick={() => {
+                                      setStreamerFaceX(pst.x);
+                                      setStreamerFaceY(pst.y);
+                                    }}
+                                    className={`py-1 px-0.5 rounded-lg border text-center transition-all cursor-pointer font-medium ${
+                                      isAktif
+                                        ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300 font-bold'
+                                        : 'bg-[#070a12] border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
+                                    }`}
+                                  >
+                                    {pst.label}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          {/* Posisi X & Y Sliders */}
+                          <div className="grid grid-cols-2 gap-3 pt-1">
+                            <div>
+                              <div className="flex justify-between text-[11px] mb-1">
+                                <span className="text-slate-400">Kiri ⇄ Kanan (X)</span>
+                                <span className="font-mono text-cyan-400 font-semibold">{Math.round(streamerFaceX * 100)}%</span>
+                              </div>
+                              <input
+                                type="range"
+                                min={0.0}
+                                max={1.0}
+                                step={0.01}
+                                value={streamerFaceX}
+                                onChange={(e) => setStreamerFaceX(Number(e.target.value))}
+                                className="w-full accent-cyan-400 cursor-pointer h-1.5 bg-slate-800 rounded-lg"
+                              />
+                            </div>
+                            <div>
+                              <div className="flex justify-between text-[11px] mb-1">
+                                <span className="text-slate-400">Atas ⇄ Bawah (Y)</span>
+                                <span className="font-mono text-cyan-400 font-semibold">{Math.round(streamerFaceY * 100)}%</span>
+                              </div>
+                              <input
+                                type="range"
+                                min={0.0}
+                                max={1.0}
+                                step={0.01}
+                                value={streamerFaceY}
+                                onChange={(e) => setStreamerFaceY(Number(e.target.value))}
+                                className="w-full accent-cyan-400 cursor-pointer h-1.5 bg-slate-800 rounded-lg"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Zoom & Tinggi Wajah */}
+                          <div className="grid grid-cols-2 gap-3 pt-1">
+                            <div>
+                              <div className="flex justify-between text-[11px] mb-1">
+                                <span className="text-slate-400">Zoom Wajah</span>
+                                <span className="font-mono text-cyan-400 font-semibold">{streamerFaceZoom.toFixed(1)}x</span>
+                              </div>
+                              <input
+                                type="range"
+                                min={1.0}
+                                max={3.5}
+                                step={0.1}
+                                value={streamerFaceZoom}
+                                onChange={(e) => setStreamerFaceZoom(Number(e.target.value))}
+                                className="w-full accent-cyan-400 cursor-pointer h-1.5 bg-slate-800 rounded-lg"
+                              />
+                            </div>
+                            {layoutMode === 'atas_bawah' ? (
+                              <div>
+                                <div className="flex justify-between text-[11px] mb-1">
+                                  <span className="text-slate-400">Tinggi Wajah</span>
+                                  <span className="font-mono text-cyan-400 font-semibold">{streamerFaceHeight}%</span>
+                                </div>
+                                <input
+                                  type="range"
+                                  min={25}
+                                  max={60}
+                                  value={streamerFaceHeight}
+                                  onChange={(e) => setStreamerFaceHeight(Number(e.target.value))}
+                                  className="w-full accent-cyan-400 cursor-pointer h-1.5 bg-slate-800 rounded-lg"
+                                />
+                              </div>
+                            ) : (
+                              <div>
+                                <label className="text-[11px] text-slate-400 block mb-1">Posisi Kotak PiP</label>
+                                <select
+                                  value={pipPosition}
+                                  onChange={(e) => setPipPosition(e.target.value as any)}
+                                  className="w-full px-2 py-1 rounded-lg bg-[#070a12] border border-slate-800 text-[11px] text-white"
+                                >
+                                  <option value="kanan_atas">Pojok Kanan Atas</option>
+                                  <option value="kiri_atas">Pojok Kiri Atas</option>
+                                  <option value="kanan_bawah">Pojok Kanan Bawah</option>
+                                  <option value="kiri_bawah">Pojok Kiri Bawah</option>
+                                </select>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* KARTU 2: LAYAR GAMEPLAY (AKSI GAME) */}
+                        <div className="p-3.5 rounded-xl bg-[#0f172a]/80 border border-slate-800 space-y-3 shadow-md">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className="w-2 h-2 rounded-full bg-blue-400"></span>
+                              <span className="font-bold text-white text-[12px]">Layar Gameplay</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setGameplayFocusX(0.5);
+                                setGameplayFocusY(0.5);
+                                setGameplayZoom(1.0);
+                              }}
+                              className="text-[10px] text-slate-400 hover:text-white border border-slate-800 hover:border-slate-700 px-2 py-0.5 rounded cursor-pointer transition-colors"
+                            >
+                              Reset Tengah
+                            </button>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="text-[10px] text-slate-400 block mb-1">Format Game</label>
+                              <select
+                                value={gameplayFitMode}
+                                onChange={(e) => setGameplayFitMode(e.target.value as any)}
+                                className="w-full px-2 py-1.5 rounded-lg bg-[#070a12] border border-slate-800 text-[11px] text-white"
+                              >
+                                <option value="fit_blur">Fit 16:9 (Bar Blur Rekomendasi)</option>
+                                <option value="cover">Cover Penuh (Crop Zoom)</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="text-[10px] text-slate-400 block mb-1">Zoom Layar Game</label>
+                              <div className="flex items-center gap-1.5">
+                                <input
+                                  type="range"
+                                  min={0.6}
+                                  max={2.5}
+                                  step={0.05}
+                                  value={gameplayZoom}
+                                  onChange={(e) => setGameplayZoom(Number(e.target.value))}
+                                  className="w-full accent-cyan-400 cursor-pointer h-1.5 bg-slate-800 rounded-lg"
+                                />
+                                <span className="font-mono text-cyan-400 text-[11px] font-semibold w-9 text-right shrink-0">
+                                  {gameplayZoom.toFixed(1)}x
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Posisi X & Y Gameplay Sliders */}
+                          <div className="grid grid-cols-2 gap-3 pt-1">
+                            <div>
+                              <div className="flex justify-between text-[11px] mb-1">
+                                <span className="text-slate-400">Geser Kiri ⇄ Kanan</span>
+                                <span className="font-mono text-cyan-400 font-semibold">{Math.round(gameplayFocusX * 100)}%</span>
+                              </div>
+                              <input
+                                type="range"
+                                min={0.0}
+                                max={1.0}
+                                step={0.01}
+                                value={gameplayFocusX}
+                                onChange={(e) => setGameplayFocusX(Number(e.target.value))}
+                                className="w-full accent-cyan-400 cursor-pointer h-1.5 bg-slate-800 rounded-lg"
+                              />
+                            </div>
+                            <div>
+                              <div className="flex justify-between text-[11px] mb-1">
+                                <span className="text-slate-400">Geser Atas ⇄ Bawah</span>
+                                <span className="font-mono text-cyan-400 font-semibold">{Math.round(gameplayFocusY * 100)}%</span>
+                              </div>
+                              <input
+                                type="range"
+                                min={0.0}
+                                max={1.0}
+                                step={0.01}
+                                value={gameplayFocusY}
+                                onChange={(e) => setGameplayFocusY(Number(e.target.value))}
+                                className="w-full accent-cyan-400 cursor-pointer h-1.5 bg-slate-800 rounded-lg"
+                              />
+                            </div>
+                          </div>
+
+                          {layoutMode === 'atas_bawah' && (
+                            <div className="pt-1">
+                              <label className="text-[10px] text-slate-400 block mb-1">Teks Garis Pembatas (Sponsor / Media Sosial)</label>
+                              <input
+                                type="text"
+                                value={dividerText}
+                                onChange={(e) => setDividerText(e.target.value)}
+                                placeholder="Contoh: @streamer • Follow Twitch"
+                                className="w-full px-2.5 py-1.5 rounded-lg bg-[#070a12] border border-slate-800 text-[11px] text-white placeholder-slate-600 focus:outline-none focus:border-cyan-400"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* TAB 5: POTONG (TRIMMING) */}
+                {editorActiveTab === 'potong' && (
+                  <div className="space-y-4 animate-fadeIn">
+                    <div className="p-3 rounded-xl bg-[#0f172a]/70 border border-slate-800 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-white">Potong Klip Presisi</span>
+                        <span className="text-xs font-mono text-cyan-400 font-bold bg-cyan-950/60 px-2 py-0.5 rounded">
+                          Durasi: {Math.max(1, Math.round(editEndTime - editStartTime))}s
+                        </span>
+                      </div>
+
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-[11px] text-slate-400">
+                          <span>Detik Mulai (In-Point)</span>
+                          <span className="font-mono text-cyan-300">{formatSec(editStartTime)} ({editStartTime.toFixed(1)}s)</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
                           <button
                             type="button"
-                            onClick={() => {
-                              setPodcastSingleFocusX(0.35);
-                              setPodcastPreviewShot('single');
-                            }}
-                            className={`px-2.5 py-1 rounded-lg border transition-all ${
-                              Math.abs(podcastSingleFocusX - 0.35) < 0.03
-                                ? 'bg-cyan-500/20 text-cyan-300 border-cyan-400/50 font-bold'
-                                : 'bg-slate-800/80 text-slate-400 border-slate-700 hover:text-white'
-                            }`}
+                            onClick={() => setEditStartTime((p) => Math.max(0, Math.round((p - 1) * 10) / 10))}
+                            className="px-2 py-1 rounded bg-slate-800 text-xs font-mono text-slate-300 cursor-pointer"
                           >
-                            Kiri (35%)
+                            -1s
                           </button>
+                          <input
+                            type="range"
+                            min={0}
+                            max={Math.max(10, editEndTime - 1)}
+                            step={0.5}
+                            value={editStartTime}
+                            onChange={(e) => setEditStartTime(Number(e.target.value))}
+                            className="w-full accent-cyan-400 cursor-pointer h-1.5 bg-slate-800 rounded-lg"
+                          />
                           <button
                             type="button"
-                            onClick={() => {
-                              setPodcastSingleFocusX(0.50);
-                              setPodcastPreviewShot('single');
-                            }}
-                            className={`px-2.5 py-1 rounded-lg border transition-all ${
-                              Math.abs(podcastSingleFocusX - 0.50) < 0.03
-                                ? 'bg-cyan-500/20 text-cyan-300 border-cyan-400/50 font-bold'
-                                : 'bg-slate-800/80 text-slate-400 border-slate-700 hover:text-white'
-                            }`}
+                            onClick={() => setEditStartTime((p) => Math.min(editEndTime - 1, Math.round((p + 1) * 10) / 10))}
+                            className="px-2 py-1 rounded bg-slate-800 text-xs font-mono text-slate-300 cursor-pointer"
                           >
-                            Tengah (50% Standar)
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setPodcastSingleFocusX(0.65);
-                              setPodcastPreviewShot('single');
-                            }}
-                            className={`px-2.5 py-1 rounded-lg border transition-all ${
-                              Math.abs(podcastSingleFocusX - 0.65) < 0.03
-                                ? 'bg-cyan-500/20 text-cyan-300 border-cyan-400/50 font-bold'
-                                : 'bg-slate-800/80 text-slate-400 border-slate-700 hover:text-white'
-                            }`}
-                          >
-                            Kanan (65%)
+                            +1s
                           </button>
                         </div>
-                        <p className="text-[10px] text-slate-400 leading-normal">
-                          Saat kamera video hanya menyorot 1 pembicara (single shot), klip otomatis 9:16 penuh pada fokus ini sehingga tubuh &amp; wajah tetap di tengah dan tidak terpotong.
-                        </p>
                       </div>
+
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-[11px] text-slate-400">
+                          <span>Detik Selesai (Out-Point)</span>
+                          <span className="font-mono text-cyan-300">{formatSec(editEndTime)} ({editEndTime.toFixed(1)}s)</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setEditEndTime((p) => Math.max(editStartTime + 1, Math.round((p - 1) * 10) / 10))}
+                            className="px-2 py-1 rounded bg-slate-800 text-xs font-mono text-slate-300 cursor-pointer"
+                          >
+                            -1s
+                          </button>
+                          <input
+                            type="range"
+                            min={editStartTime + 1}
+                            max={videoDuration || 600}
+                            step={0.5}
+                            value={editEndTime}
+                            onChange={(e) => setEditEndTime(Number(e.target.value))}
+                            className="w-full accent-cyan-400 cursor-pointer h-1.5 bg-slate-800 rounded-lg"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setEditEndTime((p) => Math.round((p + 1) * 10) / 10)}
+                            className="px-2 py-1 rounded bg-slate-800 text-xs font-mono text-slate-300 cursor-pointer"
+                          >
+                            +1s
+                          </button>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!activeClip) return;
+                          setClips((prev) =>
+                            prev.map((c) =>
+                              c.id === activeClip.id
+                                ? {
+                                    ...c,
+                                    startTime: editStartTime,
+                                    endTime: editEndTime,
+                                    durationSec: Math.round(editEndTime - editStartTime),
+                                  }
+                                : c
+                            )
+                          );
+                          setShowSavedToast(true);
+                          setTimeout(() => setShowSavedToast(false), 2000);
+                        }}
+                        className="w-full py-2 rounded-xl bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-bold text-xs shadow-md transition-colors cursor-pointer"
+                      >
+                        Terapkan Potongan Klip
+                      </button>
                     </div>
                   </div>
                 )}
 
-                {/* 4. Banner Judul Hook */}
-                <div id="sec-banner" className="bg-[#0f172a]/70 border border-slate-800 rounded-2xl p-5 space-y-3 scroll-mt-16">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold text-slate-300">Banner judul hook</span>
-                    <input
-                      type="checkbox"
-                      checked={hasHookBanner}
-                      onChange={(e) => setHasHookBanner(e.target.checked)}
-                      className="w-4 h-4 rounded bg-slate-900 border-slate-700 text-emerald-400 accent-emerald-500 cursor-pointer"
-                    />
-                  </div>
-                  {hasHookBanner && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                      <input
-                        type="text"
-                        value={bannerPrefix}
-                        onChange={(e) => setBannerPrefix(e.target.value)}
-                        placeholder="awalan, mis. PART 1:"
-                        className="bg-[#0b0f19] border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-cyan-400"
-                      />
-                      <input
-                        type="text"
-                        value={bannerSuffix}
-                        onChange={(e) => setBannerSuffix(e.target.value)}
-                        placeholder="akhiran, mis. | Klip"
-                        className="bg-[#0b0f19] border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-cyan-400"
-                      />
-                    </div>
-                  )}
-                </div>
-
-                {/* 5. Subtitle & 13 Gaya Kinetik */}
-                <div id="sec-subtitle" className="bg-[#0f172a]/70 border border-slate-800 rounded-2xl p-5 space-y-4 scroll-mt-16">
-                  <div className="flex items-center justify-between text-xs">
-                    <div>
-                      <div className="font-bold text-white">Subtitle</div>
-                      <div className="text-[11px] text-slate-500 mt-0.5">
-                        satu klik - font, warna & animasi ikut; tetap bisa diatur di bawah
+                {/* TAB 6: EFEK & AUDIO */}
+                {editorActiveTab === 'efek' && (
+                  <div className="space-y-3.5 animate-fadeIn">
+                    <div className="flex items-center justify-between p-3 rounded-xl bg-[#0f172a]/70 border border-slate-800">
+                      <div className="space-y-0.5">
+                        <div className="text-xs font-bold text-white">Panduan Safe Zone UI</div>
+                        <div className="text-[10px] text-slate-400">Garis batas area aman TikTok & IG Reels</div>
                       </div>
-                    </div>
-                    <input
-                      type="checkbox"
-                      checked={hasSubtitles}
-                      onChange={(e) => setHasSubtitles(e.target.checked)}
-                      className="w-4 h-4 rounded bg-slate-900 border-slate-700 text-emerald-400 accent-emerald-500 cursor-pointer"
-                    />
-                  </div>
-
-                  {hasSubtitles && (
-                    <div className="space-y-3">
-                      {/* Preset Cepat Gaya Influencer Viral (1-Klik) */}
-                      <div className="p-3.5 bg-gradient-to-r from-cyan-950/40 via-blue-950/30 to-purple-950/40 border border-cyan-500/30 rounded-xl space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-cyan-300 flex items-center gap-1.5">
-                            <span>⚡ Preset Cepat Influencer Viral (1-Klik):</span>
-                          </span>
-                          <span className="text-[10px] text-cyan-400 font-mono">1-Klik Auto Style</span>
-                        </div>
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                          {[
-                            { id: 'terbaca', label: 'Alex Hormozi', tag: 'Kotak Hitam + Kuning' },
-                            { id: 'pop', label: 'MrBeast', tag: 'Pop Zoom Kapital' },
-                            { id: 'halus', label: 'Ali Abdaal', tag: 'Minimalis Elegan' },
-                            { id: 'sorot', label: 'TikTok Neon', tag: 'Sorot Emas Aktif' },
-                          ].map((inf) => (
-                            <button
-                              key={inf.id}
-                              type="button"
-                              onClick={() => pilihPreset(inf.id)}
-                              className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
-                                activePreset === inf.id
-                                  ? 'bg-cyan-500/20 border-cyan-400 text-white font-bold ring-1 ring-cyan-400/50 shadow-sm'
-                                  : 'bg-[#080d1a] border-slate-800 text-slate-300 hover:border-slate-700 hover:text-white'
-                              }`}
-                            >
-                              <div className="text-xs font-bold flex items-center justify-between">
-                                <span>{inf.label}</span>
-                                {activePreset === inf.id && <Check className="w-3 h-3 text-cyan-400" />}
-                              </div>
-                              <div className="text-[10px] text-slate-400 mt-0.5">{inf.tag}</div>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                      {Object.entries(PRESETS_MALIKI).map(([id, p]) => {
-                        const isChosen = activePreset === id;
-                        const hrf = (t: string) =>
-                          p.huruf === 'kapital' ? t.toUpperCase() : p.huruf === 'kecil' ? t.toLowerCase() : t;
-                        const isKeyphrase = (wIdx: number) =>
-                          wIdx === 1 || (wIdx === 2 && (p.mode === 'pop' || p.mode === 'komik'));
-
-                        return (
-                          <button
-                            key={id}
-                            type="button"
-                            onClick={() => pilihPreset(id)}
-                            className={`group text-left rounded-xl overflow-hidden border transition-all ${
-                              isChosen
-                                ? 'bg-cyan-950/20 border-cyan-400 ring-1 ring-cyan-400/40 shadow-sm'
-                                : 'bg-[#0b0f19] border-slate-800 hover:border-slate-700'
-                            }`}
-                          >
-                            <div className="h-16 flex items-center justify-center bg-gradient-to-b from-[#232c3f] to-[#121722] px-2 text-center overflow-hidden">
-                              <span
-                                style={{
-                                  fontFamily: `'${p.font}', sans-serif`,
-                                  backgroundColor: p.kotak ? p.kotak : undefined,
-                                  padding: p.kotak ? '2px 8px' : undefined,
-                                  borderRadius: p.kotak ? '4px' : undefined,
-                                  WebkitTextStroke: (p.tepi ?? 0) >= 6 ? '1.2px #000' : undefined,
-                                  paintOrder: 'stroke fill',
-                                  color: p.mode === 'terbaca' ? p.warna : '#fff',
-                                }}
-                                className="text-base sm:text-lg font-bold tracking-wide whitespace-nowrap drop-shadow"
-                              >
-                                {['ini', 'contoh', 'Klip'].map((word, wIdx) => {
-                                  const on = isKeyphrase(wIdx);
-                                  let wordStyle: React.CSSProperties = {};
-                                  if (on) {
-                                    if (p.mode === 'tebal') {
-                                      wordStyle = { fontFamily: 'Montserrat', fontWeight: 700, color: '#fff' };
-                                    } else if (p.mode === 'terbaca') {
-                                      wordStyle = { color: '#fff' };
-                                    } else if (p.mode === 'kotak') {
-                                      wordStyle = {
-                                        backgroundColor: p.warna,
-                                        color: '#111',
-                                        padding: '0 5px',
-                                        borderRadius: '5px',
-                                      };
-                                    } else {
-                                      wordStyle = { color: p.warna };
-                                    }
-                                  }
-                                  return (
-                                    <span key={wIdx} style={wordStyle}>
-                                      {hrf(word)}{wIdx < 2 ? ' ' : ''}
-                                    </span>
-                                  );
-                                })}
-                              </span>
-                            </div>
-                            <div className="p-2.5">
-                              <div className="text-xs font-bold text-slate-200">{p.nama}</div>
-                              <div className="text-[10px] text-slate-500 truncate mt-0.5">{p.ket}</div>
-                            </div>
-                          </button>
-                        );
-                      })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Font, Ukuran & Huruf */}
-                  <div id="sec-font" className="pt-4 border-t border-slate-800/80 space-y-3 scroll-mt-16">
-                    <div className="space-y-1.5">
-                      <div className="text-[11px] font-bold text-slate-400">Font</div>
-                      <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-                        {[
-                          'Archivo Black',
-                          'Anton',
-                          'Bangers',
-                          'Montserrat',
-                          'Montserrat Light',
-                          'Space Grotesk',
-                        ].map((f) => (
-                          <button
-                            key={f}
-                            onClick={() => setSelectedFont(f)}
-                            className={`py-1.5 px-2 rounded-lg text-xs font-semibold truncate transition-colors ${
-                              selectedFont === f
-                                ? 'bg-[#06b6d4] text-slate-950 font-bold'
-                                : 'bg-[#0b0f19] text-slate-400 hover:text-white border border-slate-800'
-                            }`}
-                          >
-                            {f}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
-                      <div className="space-y-1.5">
-                        <div className="text-[11px] font-bold text-slate-400">Ukuran</div>
-                        <div className="grid grid-cols-3 gap-2">
-                          {['Kecil', 'Sedang', 'Besar'].map((sz) => (
-                            <button
-                              key={sz}
-                              onClick={() => setTextSize(sz.toLowerCase() as any)}
-                              className={`py-1 px-2 rounded-lg text-xs font-semibold ${
-                                textSize === sz.toLowerCase()
-                                  ? 'bg-[#06b6d4] text-slate-950 font-bold'
-                                  : 'bg-[#0b0f19] text-slate-400 border border-slate-800'
-                              }`}
-                            >
-                              {sz}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <div className="text-[11px] font-bold text-slate-400">Huruf</div>
-                        <div className="grid grid-cols-3 gap-2">
-                          {['ABC', 'Asli', 'abc'].map((c) => (
-                            <button
-                              key={c}
-                              onClick={() => setLetterCase(c as any)}
-                              className={`py-1 px-2 rounded-lg text-xs font-semibold ${
-                                letterCase === c
-                                  ? 'bg-[#06b6d4] text-slate-950 font-bold'
-                                  : 'bg-[#0b0f19] text-slate-400 border border-slate-800'
-                              }`}
-                            >
-                              {c}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Posisi Vertikal Slider */}
-                    <div className="space-y-1 pt-2">
-                      <div className="flex items-center justify-between text-xs font-mono">
-                        <span className="text-slate-400">Posisi vertikal</span>
-                        <span className="text-cyan-400">{verticalPos}% dari atas</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="20"
-                        max="90"
-                        value={verticalPos}
-                        onChange={(e) => setVerticalPos(parseInt(e.target.value))}
-                        className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-[#06b6d4]"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* 6. Advanced Toggles & Audio Enhancements */}
-                <div id="sec-efek" className="bg-[#0f172a]/70 border border-slate-800 rounded-2xl p-5 space-y-4 text-xs scroll-mt-16">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <label className="flex items-center justify-between p-2.5 rounded-xl bg-[#0b0f19] border border-slate-800 cursor-pointer">
-                      <span className="text-slate-300">Warna sorotan / kata kunci</span>
                       <input
                         type="checkbox"
-                        checked={colorHighlight}
-                        onChange={(e) => setColorHighlight(e.target.checked)}
-                        className="w-4 h-4 rounded bg-slate-900 text-yellow-400 accent-yellow-400 cursor-pointer"
+                        checked={showSafeZone}
+                        onChange={(e) => setShowSafeZone(e.target.checked)}
+                        className="accent-cyan-400 w-4 h-4 cursor-pointer"
                       />
-                    </label>
+                    </div>
 
-                    <label className="flex items-center justify-between p-2.5 rounded-xl bg-[#0b0f19] border border-slate-800 cursor-pointer">
-                      <span className="text-slate-300">Zoom singkat di kata kunci</span>
+
+                    {/* Auto-Zoom Kata Kunci */}
+                    <div className="flex items-center justify-between p-3 rounded-xl bg-[#0f172a]/70 border border-slate-800">
+                      <div className="space-y-0.5">
+                        <div className="text-xs font-bold text-white">Auto-Zoom Kata Kunci (Punch-in)</div>
+                        <div className="text-[10px] text-slate-400">Zoom in halus 1.12x pada hook awal dan kata-kata viral</div>
+                      </div>
                       <input
                         type="checkbox"
                         checked={zoomKeyphrase}
                         onChange={(e) => setZoomKeyphrase(e.target.checked)}
-                        className="w-4 h-4 rounded bg-slate-900 text-emerald-400 accent-emerald-500 cursor-pointer"
+                        className="accent-cyan-400 w-4 h-4 cursor-pointer"
                       />
-                    </label>
+                    </div>
 
-                    <label className="flex items-center justify-between p-2.5 rounded-xl bg-[#0b0f19] border border-slate-800 cursor-pointer">
-                      <span className="text-slate-300">Progress bar di bawah</span>
-                      <input
-                        type="checkbox"
-                        checked={bottomProgress}
-                        onChange={(e) => setBottomProgress(e.target.checked)}
-                        className="w-4 h-4 rounded bg-slate-900 text-emerald-400 accent-emerald-500 cursor-pointer"
-                      />
-                    </label>
-
-                    <label className="flex items-center justify-between p-2.5 rounded-xl bg-[#0b0f19] border border-slate-800 cursor-pointer">
-                      <span className="text-slate-300">Emoji otomatis di atas subtitle</span>
-                      <input
-                        type="checkbox"
-                        checked={autoEmoji}
-                        onChange={(e) => setAutoEmoji(e.target.checked)}
-                        className="w-4 h-4 rounded bg-slate-900 text-emerald-400 accent-emerald-500 cursor-pointer"
-                      />
-                    </label>
-
-                    <label className="flex items-center justify-between p-2.5 rounded-xl bg-[#0b0f19] border border-slate-800 cursor-pointer sm:col-span-2">
-                      <div>
-                        <div className="text-slate-300 font-medium">Sensor kata kasar (Family Friendly)</div>
-                        <div className="text-[10px] text-slate-500">Sensor kata tidak pantas jadi bintang (***) otomatis</div>
+                    {/* Voice Boost (Penjernih Suara) */}
+                    <div className="flex items-center justify-between p-3 rounded-xl bg-[#0f172a]/70 border border-slate-800">
+                      <div className="space-y-0.5">
+                        <div className="text-xs font-bold text-white">Voice Boost (Penjernih Suara)</div>
+                        <div className="text-[10px] text-slate-400">Memperjelas frekuensi suara pembicara</div>
                       </div>
                       <input
                         type="checkbox"
-                        checked={sensorKataKasar}
-                        onChange={(e) => setSensorKataKasar(e.target.checked)}
-                        className="w-4 h-4 rounded bg-slate-900 text-cyan-400 accent-cyan-500 cursor-pointer"
+                        checked={voiceBoost !== '100%'}
+                        onChange={(e) => setVoiceBoost(e.target.checked ? '150%' : '100%')}
+                        className="accent-cyan-400 w-4 h-4 cursor-pointer"
                       />
-                    </label>
+                    </div>
 
-                    {/* Hardware Acceleration Indicator & Toggle */}
-                    <div className="p-3 rounded-xl bg-[#0b0f19] border border-slate-800 space-y-2 sm:col-span-2">
+                    {/* Progress Bar Kustomisasi (Standar Video Pendek Viral) */}
+                    <div className="p-3 rounded-xl bg-[#0f172a]/70 border border-slate-800 space-y-2.5">
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Cpu className="w-4 h-4 text-cyan-400" />
-                          <span className="text-slate-300 font-semibold">Akselerasi Ekspor Hardware (GPU)</span>
+                        <div className="space-y-0.5">
+                          <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                            <Sparkles className="w-3 h-3 text-cyan-400" />
+                            <span>Progress Bar Durasi Bawah</span>
+                          </div>
+                          <div className="text-[10px] text-slate-400">Garis penunjuk sisa video di bagian bawah layar</div>
                         </div>
-                        <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full ${
-                          hardwareInfo?.is_gpu && !paksaCpu
-                            ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/50'
-                            : 'bg-slate-800 text-slate-400 border border-slate-700/50'
-                        }`}>
-                          {paksaCpu ? 'Mode CPU' : hardwareInfo?.label || 'Mendeteksi...'}
-                        </span>
+                        <input
+                          type="checkbox"
+                          checked={bottomProgress}
+                          onChange={(e) => setBottomProgress(e.target.checked)}
+                          className="accent-cyan-400 w-4 h-4 cursor-pointer"
+                        />
                       </div>
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1 text-[11px] text-slate-400">
-                        <p>
-                          {hardwareInfo?.is_gpu && !paksaCpu
-                            ? '⚡ Kartu grafis aktif! Ekspor klip 5x–8x lebih ngebut via GPU.'
-                            : '🛡️ Render aman dengan CPU bawaan (kompatibel 100% di semua laptop).'}
-                        </p>
-                        <label className="flex items-center gap-1.5 cursor-pointer text-slate-400 hover:text-white shrink-0">
-                          <input
-                            type="checkbox"
-                            checked={paksaCpu}
-                            onChange={(e) => setPaksaCpu(e.target.checked)}
-                            className="w-3.5 h-3.5 rounded bg-slate-900 text-cyan-400 accent-cyan-500 cursor-pointer"
-                          />
-                          <span>Paksa CPU saja</span>
-                        </label>
-                      </div>
-                    </div>
-                  </div>
 
-                  {/* Judul pembuka 3 detik */}
-                  <div className="space-y-2 pt-2 border-t border-slate-800/80">
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold text-slate-300">Judul pembuka 3 detik</span>
-                      <input
-                        type="checkbox"
-                        checked={introHook3s}
-                        onChange={(e) => setIntroHook3s(e.target.checked)}
-                        className="w-4 h-4 rounded bg-slate-900 text-emerald-400 accent-emerald-500 cursor-pointer"
-                      />
+                      {bottomProgress && (
+                        <div className="pt-1.5 border-t border-slate-800/60 space-y-2">
+                          <div className="text-[10px] font-mono text-slate-400">Gaya Warna Bar:</div>
+                          <div className="grid grid-cols-4 gap-1.5">
+                            {[
+                              { id: 'cyan', label: 'Cyan', color: '#00F5FF' },
+                              { id: 'kuning', label: 'Kuning', color: '#FFD400' },
+                              { id: 'hijau', label: 'Hijau', color: '#3DFF8A' },
+                              { id: 'pelangi', label: 'Pelangi', color: '#FF3388' },
+                            ].map((c) => (
+                              <button
+                                key={c.id}
+                                type="button"
+                                onClick={() => setProgressBarColor(c.id as any)}
+                                className={`py-1 px-1 rounded-lg text-[10px] font-bold cursor-pointer transition-all ${
+                                  progressBarColor === c.id
+                                    ? 'ring-2 ring-white scale-102 shadow-sm'
+                                    : 'opacity-70 hover:opacity-100'
+                                }`}
+                                style={{
+                                  background: c.id === 'pelangi' ? 'linear-gradient(90deg, #00F5FF, #3DFF8A, #FFD400, #FF3388)' : `${c.color}25`,
+                                  color: c.id === 'pelangi' ? '#fff' : c.color,
+                                  border: c.id === 'pelangi' ? '1px solid rgba(255,255,255,0.4)' : `1px solid ${c.color}`,
+                                }}
+                              >
+                                {c.label}
+                              </button>
+                            ))}
+                          </div>
+
+                          <div className="flex items-center justify-between pt-1">
+                            <span className="text-[10px] font-mono text-slate-400">Ketebalan:</span>
+                            <div className="flex gap-1.5">
+                              {[
+                                { id: 5, label: '5px' },
+                                { id: 8, label: '8px' },
+                                { id: 12, label: '12px' },
+                              ].map((t) => (
+                                <button
+                                  key={t.id}
+                                  type="button"
+                                  onClick={() => setProgressBarThickness(t.id)}
+                                  className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors cursor-pointer ${
+                                    progressBarThickness === t.id
+                                      ? 'bg-cyan-400 text-slate-950 font-bold'
+                                      : 'bg-slate-800 text-slate-300 hover:text-white'
+                                  }`}
+                                >
+                                  {t.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    {introHook3s && (
-                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pt-1">
+
+                    {/* Mikro-Audio & Sound Effects */}
+                    <div className="p-3 rounded-xl bg-[#0f172a]/70 border border-slate-800 space-y-2.5">
+                      <div className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                        <Music className="w-3.5 h-3.5 text-cyan-400" />
+                        <span>Mikro-Audio & Retensi Suara</span>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-1">
+                        <div className="space-y-0.5">
+                          <div className="text-xs font-medium text-white">Auto Micro-SFX (Pop & Whoosh)</div>
+                          <div className="text-[10px] text-slate-400">Suara pop lembut saat emoji muncul & whoosh intro</div>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={autoMicroSfx}
+                          onChange={(e) => setAutoMicroSfx(e.target.checked)}
+                          className="accent-cyan-400 w-4 h-4 cursor-pointer"
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between pt-1 border-t border-slate-800/60">
+                        <div className="space-y-0.5">
+                          <div className="text-xs font-medium text-white">Auto Audio Ducking BGM</div>
+                          <div className="text-[10px] text-slate-400">Musik latar otomatis mengecil saat orang bicara</div>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={autoAudioDucking}
+                          onChange={(e) => setAutoAudioDucking(e.target.checked)}
+                          className="accent-cyan-400 w-4 h-4 cursor-pointer"
+                        />
+                      </div>
+                    </div>
+
+                    {/* B-roll Mode */}
+                    <div className="p-3 rounded-xl bg-[#0f172a]/70 border border-slate-800 space-y-2">
+                      <div className="text-xs font-bold text-slate-300">B-Roll Video Sisipan</div>
+                      <div className="grid grid-cols-3 gap-2">
                         {[
-                          'Kotak kuning',
-                          'Hook neon',
-                          'Serif elegan',
-                          'Kotak hitam',
-                          'Kertas sobek',
-                        ].map((st) => (
+                          { id: 'tanpa', label: 'Tanpa' },
+                          { id: 'file', label: 'File saya' },
+                          { id: 'pixabay', label: 'Pixabay' },
+                        ].map((b) => (
                           <button
-                            key={st}
-                            onClick={() => setIntroStyle(st)}
-                            className={`py-1.5 px-2 rounded-lg text-xs font-semibold ${
-                              introStyle === st
+                            key={b.id}
+                            type="button"
+                            onClick={() => setBRollMode(b.id as any)}
+                            className={`py-1.5 px-2 rounded-lg text-xs font-semibold cursor-pointer ${
+                              bRollMode === b.id
                                 ? 'bg-cyan-400 text-slate-950 font-bold'
-                                : 'bg-[#0b0f19] text-slate-400 border border-slate-800'
+                                : 'bg-[#070a12] text-slate-400 border border-slate-800'
                             }`}
                           >
-                            {st}
+                            {b.label}
                           </button>
                         ))}
                       </div>
-                    )}
-                  </div>
-
-                  {/* Musik latar & Volume */}
-                  <div id="sec-audio" className="space-y-3 pt-3 border-t border-slate-800/80 scroll-mt-16">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="font-semibold text-slate-300">Musik latar</span>
-                      <span className="text-[10px] font-mono text-slate-400">mp3/wav/m4a — pakai musik yang boleh dipakai</span>
                     </div>
 
-                    {/* Hidden file input */}
-                    <input
-                      type="file"
-                      ref={musicFileInputRef}
-                      accept="audio/mp3,audio/wav,audio/m4a,audio/*"
-                      onChange={handleUploadCustomMusic}
-                      className="hidden"
-                    />
-
-                    <div className="flex flex-wrap items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setIsMusicModalOpen(true)}
-                        className="px-3 py-1.5 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-xs font-semibold transition-all flex items-center gap-1.5"
-                      >
-                        <Music className="w-3.5 h-3.5" />
-                        <span>Pilih musik</span>
-                      </button>
-
-                      {selectedMusicUrl && (
-                        <button
-                          type="button"
-                          onClick={toggleMusicPreview}
-                          className={`px-2.5 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all ${
-                            isMusicPlaying
-                              ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
-                              : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white'
-                          }`}
-                        >
-                          {isMusicPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
-                          <span>{isMusicPlaying ? 'Jeda' : 'Preview'}</span>
-                        </button>
-                      )}
-
-                      <span className="text-xs font-mono text-slate-300 truncate max-w-[180px] bg-slate-900/80 px-2.5 py-1 rounded-lg border border-slate-800">
-                        {selectedMusicName}
-                      </span>
-
-                      {selectedMusicPath && (
-                        <button
-                          type="button"
-                          onClick={handleClearMusic}
-                          className="p-1 rounded-lg hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 transition-colors"
-                          title="Hapus musik"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="space-y-1 pt-1">
-                      <div className="flex items-center justify-between text-xs font-mono">
-                        <span className="text-slate-400">Volume musik latar</span>
-                        <span className="text-cyan-400 font-bold">{musicVol}%</span>
+                    {/* Background Music BGM */}
+                    <div className="p-3 rounded-xl bg-[#0f172a]/70 border border-slate-800 space-y-2">
+                      <div className="flex items-center justify-between text-xs font-bold text-slate-300">
+                        <span>Musik Latar (BGM)</span>
+                        <span className="text-[10px] font-mono text-slate-400">{selectedMusicName} • {musicVol}%</span>
                       </div>
                       <input
                         type="range"
-                        min="0"
-                        max="100"
+                        min={0}
+                        max={100}
                         value={musicVol}
-                        onChange={(e) => {
-                          const val = parseInt(e.target.value, 10);
-                          setMusicVol(val);
-                          if (musicAudioRef.current) musicAudioRef.current.volume = val / 100;
-                        }}
-                        className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-[#06b6d4]"
+                        onChange={(e) => setMusicVol(Number(e.target.value))}
+                        className="w-full accent-cyan-400 cursor-pointer h-1.5 bg-slate-800 rounded-lg"
                       />
-                    </div>
-                  </div>
-
-                  {/* Penguat suara asli */}
-                  <div className="space-y-2 pt-2 border-t border-slate-800/80">
-                    <div className="text-slate-400">Penguat suara asli</div>
-                    <div className="grid grid-cols-5 gap-2">
-                      {['88%', '100%', '125%', '150%', '200%'].map((bst) => (
+                      <div className="flex items-center gap-2 pt-1 text-xs">
                         <button
-                          key={bst}
-                          onClick={() => setVoiceBoost(bst as any)}
-                          className={`py-1 px-2 rounded-lg text-xs font-semibold ${
-                            voiceBoost === bst
-                              ? 'bg-[#06b6d4] text-slate-950 font-bold'
-                              : 'bg-[#0b0f19] text-slate-400 border border-slate-800'
-                          }`}
+                          type="button"
+                          onClick={toggleMusicPreview}
+                          className="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 hover:text-white flex items-center gap-1 cursor-pointer"
                         >
-                          {bst}
+                          <Music className="w-3 h-3 text-cyan-400" />
+                          <span>Pratinjau Musik</span>
                         </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* B-roll */}
-                  <div className="space-y-2 pt-2 border-t border-slate-800/80">
-                    <div className="text-slate-400">B-roll video sisipan</div>
-                    <div className="grid grid-cols-3 gap-2">
-                      {[
-                        { id: 'tanpa', label: 'Tanpa' },
-                        { id: 'file', label: 'File saya' },
-                        { id: 'pixabay', label: 'Pixabay' },
-                      ].map((b) => (
                         <button
-                          key={b.id}
-                          onClick={() => setBRollMode(b.id as any)}
-                          className={`py-1.5 px-3 rounded-lg text-xs font-semibold ${
-                            bRollMode === b.id
-                              ? 'bg-[#06b6d4] text-slate-950 font-bold'
-                              : 'bg-[#0b0f19] text-slate-400 border border-slate-800'
-                          }`}
+                          type="button"
+                          onClick={() => musicFileInputRef.current?.click()}
+                          className="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 hover:text-white cursor-pointer"
                         >
-                          {b.label}
+                          Upload Musik
                         </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Right Column (4 Cols): Pinned Sticky Phone Canvas Preview (Always in View at Eye Level) */}
-              <div className="lg:col-span-4 relative">
-                <div className="sticky top-4 self-start space-y-3 flex flex-col items-center w-full max-w-[320px] mx-auto z-20">
-                  <div className="ponsel relative w-full">
-                  <div className="layar relative overflow-hidden">
-                    <canvas
-                      ref={kanvasStudioRef}
-                      width={540}
-                      height={960}
-                      className="cursor-pointer block w-full h-full"
-                      onClick={() => {
-                        const v = videoElemRef.current;
-                        if (!v) return;
-                        if (v.paused) v.play().catch(() => {});
-                        else v.pause();
-                      }}
-                      title="Klik untuk putar / jeda"
-                    />
-
-                    {/* Safe Zone Overlay */}
-                    {showSafeZone && (
-                      <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-2.5 select-none">
-                        {/* Top Header Obstruction Zone */}
-                        <div className="w-full h-[14%] border-b border-dashed border-amber-400/80 bg-amber-500/10 rounded-t flex items-center justify-center">
-                          <span className="text-[10px] font-mono font-medium text-amber-300 bg-black/70 px-2 py-0.5 rounded shadow">
-                            Header / Search / Tab TikTok
-                          </span>
-                        </div>
-
-                        {/* Middle Safe Area with Right Action Rail */}
-                        <div className="w-full flex-1 flex justify-between items-center py-2 relative">
-                          <div className="flex-1 h-full border border-dashed border-emerald-400/60 bg-emerald-500/5 rounded flex items-center justify-center">
-                            <span className="text-[10px] font-mono font-medium text-emerald-300/90 bg-black/70 px-2 py-0.5 rounded text-center shadow">
-                              Zona Aman Subtitle & Wajah
-                            </span>
-                          </div>
-
-                          {/* Right Action Rail */}
-                          <div className="w-[18%] h-full border-l border-dashed border-rose-400/80 bg-rose-500/10 rounded-r flex flex-col items-center justify-center gap-3">
-                            <span className="text-[9px] font-mono font-medium text-rose-300 bg-black/70 px-1 py-0.5 rounded rotate-90 whitespace-nowrap shadow">
-                              Tombol Like / Share
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Bottom Caption Zone */}
-                        <div className="w-full h-[22%] border-t border-dashed border-amber-400/80 bg-amber-500/10 rounded-b flex items-center justify-center">
-                          <span className="text-[10px] font-mono font-medium text-amber-300 bg-black/70 px-2 py-0.5 rounded shadow">
-                            Area Caption & Audio TikTok/Reels
-                          </span>
-                        </div>
+                        <input
+                          type="file"
+                          ref={musicFileInputRef}
+                          accept="audio/*"
+                          className="hidden"
+                          onChange={handleUploadCustomMusic}
+                        />
+                        {selectedMusicName !== 'tanpa musik' && (
+                          <button
+                            type="button"
+                            onClick={handleClearMusic}
+                            className="px-2 py-1 rounded-lg text-rose-400 hover:text-rose-300 text-[11px] cursor-pointer"
+                          >
+                            Hapus
+                          </button>
+                        )}
                       </div>
-                    )}
-                  </div>
-
-                  <div className="flex items-center justify-between mt-2.5 px-1">
-                    <div className="ket text-[11px] text-slate-400 font-mono">
-                      pratinjau • klik "Putar"
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setShowSafeZone(!showSafeZone)}
-                      className={`px-2 py-1 rounded-lg text-[10px] font-mono flex items-center gap-1.5 transition-colors border ${
-                        showSafeZone
-                          ? 'bg-cyan-950/80 text-cyan-300 border-cyan-500/40 shadow-sm'
-                          : 'bg-slate-900/80 text-slate-400 border-slate-800 hover:text-slate-200'
-                      }`}
-                      title="Tampilkan / sembunyikan garis panduan zona aman UI TikTok & Reels"
-                    >
-                      <Shield className="w-3 h-3 text-cyan-400" />
-                      <span>Safe Zone {showSafeZone ? 'ON' : 'OFF'}</span>
-                    </button>
                   </div>
-
-                  <button
-                    type="button"
-                    onClick={handleStartRender}
-                    disabled={isRenderingPipeline}
-                    className="w-full py-3 rounded-xl bg-[#06b6d4] hover:bg-[#22d3ee] text-slate-950 font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-xl shadow-cyan-500/20 disabled:opacity-50 mt-3.5"
-                  >
-                    {isRenderingPipeline ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>Rendering ({Math.round(renderProgressPercent)}%)...</span>
-                      </>
-                    ) : (
-                      <span>Render klip terpilih</span>
-                    )}
-                  </button>
-                  <div className="text-[11px] font-mono text-slate-500 text-center mt-2">
-                    {checkedClipsCount} klip dicentang
-                  </div>
-                </div>
+                )}
               </div>
             </div>
           </div>
-        </div>
-        )}
-      </div>
-    )}
 
+          {/* 4. BOTTOM PRECISION FILMSTRIP SCRUBBER */}
+          {(() => {
+            const baseStart = activeClip?.startTime || 0;
+            const baseEnd = activeClip?.endTime || 30;
+            const span = Math.max(1, baseEnd - baseStart);
+            const currentT = hasResults ? currentVideoTime : currentTime;
+            const leftPct = Math.max(0, Math.min(95, (((editStartTime || baseStart) - baseStart) / span) * 100));
+            const rightPct = Math.max(0, Math.min(95, ((baseEnd - (editEndTime || baseEnd)) / span) * 100));
+            const playheadPct = Math.max(0, Math.min(100, (((currentT || baseStart) - baseStart) / span) * 100));
+
+            return (
+              <div className="bg-[#0b0f19] border border-slate-800 rounded-2xl p-3 shadow-xl space-y-2">
+                <div className="flex items-center justify-between text-[11px] font-mono px-1">
+                  <span className="text-cyan-400 font-bold">{formatSec(editStartTime || baseStart)}</span>
+                  <div className="flex items-center gap-1.5 text-slate-400 text-[10px]">
+                    <button
+                      type="button"
+                      onClick={handleDeleteActiveClip}
+                      className="hover:text-rose-400 hover:bg-slate-800/80 px-2 py-0.5 rounded cursor-pointer transition-colors flex items-center gap-1 font-medium"
+                      title="Buang / hapus klip ini dari daftar proyek"
+                    >
+                      <span>Buang bagian</span>
+                    </button>
+                    <span>•</span>
+                    <span className="text-slate-500">Geser ujung pemotong</span>
+                    <span>•</span>
+                    <button
+                      type="button"
+                      onClick={handleSplitClipAtPlayhead}
+                      className="hover:text-cyan-300 hover:bg-slate-800/80 px-2 py-0.5 rounded cursor-pointer transition-colors flex items-center gap-1 font-bold text-cyan-400/90"
+                      title="Belah klip di posisi waktu saat ini (Ctrl+B)"
+                    >
+                      <Scissors className="w-3 h-3" />
+                      <span>Ctrl+B belah klip</span>
+                    </button>
+                  </div>
+                  <span className="text-cyan-400 font-bold">{formatSec(editEndTime || baseEnd)}</span>
+                </div>
+
+                <div
+                  ref={filmstripContainerRef}
+                  onMouseDown={(e) => {
+                    setIsScrubbingFilmstrip(true);
+                    handleFilmstripScrub(e.clientX);
+                  }}
+                  className="relative w-full h-12 bg-[#070a12] border border-slate-800 rounded-xl overflow-hidden flex items-center select-none cursor-pointer group"
+                  title="Klik atau geser mouse untuk menggeser playhead video"
+                >
+                  {/* Filmstrip Frame Grid */}
+                  <div className="w-full h-full flex opacity-30 pointer-events-none">
+                    {[...Array(12)].map((_, idx) => (
+                      <div key={idx} className="flex-1 h-full border-r border-slate-800/80 bg-slate-900/50 flex items-center justify-center">
+                        <span className="text-[9px] font-mono text-slate-700">frame-{idx + 1}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Active Trimmer Bounding Box with Left and Right Handles */}
+                  <div
+                    style={{
+                      left: `${leftPct}%`,
+                      right: `${rightPct}%`,
+                    }}
+                    className="absolute inset-y-0 border-2 border-cyan-400 bg-cyan-400/10 pointer-events-none flex items-center justify-between z-20"
+                  >
+                    {/* Left In-Point Handle */}
+                    <div
+                      onMouseDown={(e) => {
+                        e.stopPropagation();
+                        setIsDraggingLeftHandle(true);
+                      }}
+                      className="pointer-events-auto h-full w-3 bg-cyan-400 hover:bg-cyan-300 cursor-ew-resize flex items-center justify-center transition-colors shadow-lg z-30"
+                      title="Tahan & geser untuk memotong detik awal klip"
+                    >
+                      <span className="w-0.5 h-4 bg-slate-950 rounded"></span>
+                    </div>
+
+                    {/* Right Out-Point Handle */}
+                    <div
+                      onMouseDown={(e) => {
+                        e.stopPropagation();
+                        setIsDraggingRightHandle(true);
+                      }}
+                      className="pointer-events-auto h-full w-3 bg-cyan-400 hover:bg-cyan-300 cursor-ew-resize flex items-center justify-center transition-colors shadow-lg z-30"
+                      title="Tahan & geser untuk memotong detik akhir klip"
+                    >
+                      <span className="w-0.5 h-4 bg-slate-950 rounded"></span>
+                    </div>
+                  </div>
+
+                  {/* Real-time Filmstrip Playhead */}
+                  <div
+                    className="absolute top-0 bottom-0 w-[2px] bg-white shadow-[0_0_8px_rgba(255,255,255,1)] z-20 pointer-events-none"
+                    style={{
+                      left: `${playheadPct}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      )}
     {/* Modal Edit Subtitle & Hook Title */}
     {editingClip && (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">

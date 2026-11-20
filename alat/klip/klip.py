@@ -533,16 +533,16 @@ def deteksi_streamer_facecam(file: Path, a: float, b: float, w: int, h: int) -> 
         mx = float(np.median([p[0] for p in items]))
         my = float(np.median([p[1] for p in items]))
         ms = float(np.median([p[2] for p in items]))
-        zoom = 2.6 if ms < 0.06 else (2.2 if ms < 0.12 else 1.6)
+        zoom = 3.6 if ms < 0.07 else (3.0 if ms < 0.12 else 2.2)
         return {"ada": True, "x": mx, "y": my, "s": ms, "sudut": top_sudut, "zoom": zoom}
 
     if all_faces:
         mx = float(np.median([p[0] for p in all_faces]))
         my = float(np.median([p[1] for p in all_faces]))
         ms = float(np.median([p[2] for p in all_faces]))
-        return {"ada": True, "x": mx, "y": my, "s": ms, "sudut": "tengah", "zoom": 1.5}
+        return {"ada": True, "x": mx, "y": my, "s": ms, "sudut": "tengah", "zoom": 1.8}
 
-    return {"ada": False, "x": 0.10, "y": 0.86, "s": 0.05, "sudut": "kiri_bawah", "zoom": 2.4}
+    return {"ada": False, "x": 0.10, "y": 0.86, "s": 0.05, "sudut": "kiri_bawah", "zoom": 3.4}
 
 
 def dua_wajah(file: Path, a: float, b: float, w: int, h: int) -> list[dict] | None:
@@ -866,15 +866,16 @@ def jejak_wajah(file: Path, a: float, b: float, w: int, h: int) -> list[tuple[fl
     smoothed = [target[0]] * n
     for j in range(n):
         raw_x = target[j]
-        if j == 0 or potong[j]:
-            # Shot cut / pergantian adegan: reset state Kalman agar potong seketika (jump cut) tanpa geser lewat ruang kosong
+        curr_x, _ = kalman.get_pos()
+        lompat_pembicara = abs(raw_x - curr_x) >= 0.16  # perpindahan antar pembicara (kiri ⇄ kanan)
+
+        if j == 0 or potong[j] or lompat_pembicara:
+            # Shot cut atau pergantian pembicara: reset Kalman agar potong instan (jump cut) tanpa geser lambat
             kalman.set_state(raw_x, 0.5)
             smoothed[j] = raw_x
             continue
 
-        curr_x, _ = kalman.get_pos()
         dist = abs(raw_x - curr_x)
-        # Jika di dalam radius deadzone, redam tarikan pengukuran untuk menekan camera jitter
         meas_x = curr_x + (raw_x - curr_x) * 0.2 if dist < deadzone else raw_x
 
         kalman.predict(dt)
@@ -891,8 +892,9 @@ def jejak_wajah(file: Path, a: float, b: float, w: int, h: int) -> list[tuple[fl
     kunci: list[tuple[float, float]] = [(0.0, kam)]
     for j in range(1, n):
         t = j / fps
-        if potong[j]:
-            # Lompat tegas di potongan kamera (shot cut)
+        is_jump = potong[j] or abs(smoothed[j] - kam) >= 0.16
+        if is_jump:
+            # Lompat tegas di potongan kamera atau pergantian pembicara podcast
             if abs(smoothed[j] - kam) > 0.01:
                 kunci.append((max(t - 0.02, kunci[-1][0] + 0.01), kam))
                 kunci.append((t, smoothed[j]))
@@ -907,17 +909,22 @@ def jejak_wajah(file: Path, a: float, b: float, w: int, h: int) -> list[tuple[fl
     return kunci
 
 
-def potong_jejak(w: int, h: int, rasio: float, kunci: list[tuple[float, float]]) -> str:
-    """Crop berasio tetap dengan posisi-x yang berubah menurut waktu (interpolasi linear antar titik kunci)."""
+def potong_jejak(w: int, h: int, rasio: float, kunci: list[tuple[float, float]], skala: float = 1.0, cy: float = 0.38) -> str:
+    """Crop berasio tetap dengan posisi-x dinamis menurut waktu. skala<1 = zoom in. cy=0.38 mengamankan kepala agar tidak terpotong."""
+    sk = min(max(float(skala), 0.35), 1.0)
     if w / h > rasio:
-        ch = h // 2 * 2
+        ch = int(h * sk) // 2 * 2
         cw = int(ch * rasio) // 2 * 2
     else:
-        cw = w // 2 * 2
+        cw = int(w * sk) // 2 * 2
         ch = int(cw / rasio) // 2 * 2
+    cw = min(cw, w // 2 * 2)
+    ch = min(ch, h // 2 * 2)
+    # Gunakan cy=0.38 untuk menjaga framing kepala di sepertiga atas (golden ratio framing podcast)
+    cy_offset = int(min(max(cy * h - ch / 2, 0), h - ch))
     if len(kunci) == 1 or cw >= w:
         x0 = int(min(max(kunci[0][1] * w - cw / 2, 0), w - cw))
-        return f"crop={cw}:{ch}:{x0}:{(h - ch) // 2}"
+        return f"crop={cw}:{ch}:{x0}:{cy_offset}"
     px = [(t, min(max(x * w - cw / 2, 0), w - cw)) for t, x in kunci]
     # bangun ekspresi bertingkat: if(lt(t,t1), lerp, if(lt(t,t2), …))
     expr = f"{px[-1][1]:.1f}"
@@ -928,7 +935,46 @@ def potong_jejak(w: int, h: int, rasio: float, kunci: list[tuple[float, float]])
             seg = f"{x0:.1f}+({x1 - x0:.1f})*(t-{t0:.2f})/{t1 - t0:.2f}"
         expr = f"if(lt(t,{t1:.2f}),{seg},{expr})"
     expr = expr.replace(",", "\\,")
-    return f"crop={cw}:{ch}:{expr}:{(h - ch) // 2}"
+    return f"crop={cw}:{ch}:{expr}:{cy_offset}"
+
+
+def jejak_podcast_auto(
+    file: Path,
+    a: float,
+    b: float,
+    w: int,
+    h: int,
+    p1_x: float | None = None,
+    p2_x: float | None = None,
+) -> list[tuple[float, float]]:
+    """Pelacakan Pembicara Podcast 1 Layar Penuh (Active Speaker Tracking).
+
+    Secara otomatis membingkai (auto-frame) orang yang sedang aktif berbicara,
+    tahan terhadap shot-cut multi-kamera (close up maupun wide 2-shot), dan
+    melakukan pergantian kamera bersih (jump cut) seketika saat pembicara berganti.
+    """
+    # Gunakan jejak pelacak wajah aktif dengan jump-cut otomatis
+    kunci = jejak_wajah(file, a, b, w, h)
+    if not kunci:
+        return [(0.0, 0.5)]
+
+    # Bila pengguna menentukan koordinat anchor P1 & P2, snap koordinat terdekat
+    x1 = float(p1_x) if (p1_x is not None and 0.05 < float(p1_x) < 0.95) else None
+    x2 = float(p2_x) if (p2_x is not None and 0.05 < float(p2_x) < 0.95) else None
+
+    if x1 is not None and x2 is not None:
+        kunci_snap = []
+        for t, x in kunci:
+            # Jika dekat dengan anchor P1 atau P2 (selisih < 0.14), rapatkan ke anchor agar framing konsisten
+            if abs(x - x1) < 0.14:
+                kunci_snap.append((t, round(x1, 3)))
+            elif abs(x - x2) < 0.14:
+                kunci_snap.append((t, round(x2, 3)))
+            else:
+                kunci_snap.append((t, round(x, 3)))
+        return kunci_snap
+
+    return kunci
 
 
 def potong(w: int, h: int, rasio: float, cx: float, cy: float = 0.5, skala: float = 1.0) -> str:
@@ -1030,10 +1076,14 @@ def gaya_akhir(g: dict) -> dict:
                 c["tebal"] = 1 if g[k] not in ("Archivo Black", "Anton", "Bangers") and "Bold" not in g[k] else 0
             c[k] = g[k]
     c.setdefault("progres", True)
-    c.setdefault("zoom", True)
+    c.setdefault("zoom", False)  # ponytail: default off — zoom sering disalahpahami sebagai bug; pengguna bisa aktifkan manual
     for k in ("progres", "zoom", "akun", "emoji", "watermark"):
         if k in g:
             c[k] = g[k]
+    if "progress_bar" in g:
+        c["progres"] = bool(g["progress_bar"])
+    if "zoom_kata_kunci" in g:
+        c["zoom"] = bool(g["zoom_kata_kunci"])
     c.setdefault("emoji", True)
     c.setdefault("judul", "kuning")
     if g.get("gaya_judul") in GAYA_JUDUL:
@@ -1095,20 +1145,50 @@ def kunci_klip(kata: list, klip: Klip) -> set:
 
 
 HIJAU = warna_ass("#3DFF8A")
+MERAH = warna_ass("#FF453A")
+KUNING = warna_ass("#FFD400")
+CYAN = warna_ass("#00F5FF")
+
+def warna_sentimen_kata(teks: str, default_sorot: str) -> str:
+    low = _norm(teks)
+    if re.search(r"^(untung|cuan|kaya|sukses|berhasil|bisa|topup|diamond|gacor|wangi|profit|hemat)", low):
+        return HIJAU
+    if re.search(r"^(jangan|gagal|zonk|rugi|bahaya|awas|salah|rusak|parah|batal|boncos|rungkad|mati)", low):
+        return MERAH
+    if re.search(r"\d+", low) or re.search(r"^(penting|rahasia|kunci|trik|fokus)", low):
+        return KUNING
+    return default_sorot
 
 EMOJI = [  # kata (awalan) → emoji, sama dengan aplikasi Klip HP; gambar Twemoji di folder emoji/
-    ("uang|duit|gaji|kaya|cuan|bisnis|jual|untung", "1f4b0"), ("cinta|sayang|hati|nikah|istri|suami", "2764"),
-    ("api|panas|viral|hebat|keren", "1f525"), ("ide|pikir|otak|ilmu|belajar|paham", "1f4a1"),
-    ("waktu|jam|cepat|lambat|telat", "23f0"), ("rahasia|diam|bisik", "1f92b"), ("penting|bahaya|awas|hati-hati", "26a0"),
-    ("salah|jangan|dilarang|gagal", "274c"), ("benar|betul|berhasil|sukses|bisa", "2705"), ("lucu|ketawa|tertawa|ngakak", "1f602"),
-    ("ternyata|kaget|gila|parah|serius", "1f631"), ("allah|tuhan|doa|sholat|salat|ibadah|quran|alquran|nabi|islam", "1f932"),
-    ("makan|lapar|masak|kopi", "1f37d"), ("kerja|kantor|karier|karir", "1f4bc"), ("sehat|olahraga|kuat|otot", "1f4aa"),
-    ("uji|tes|soal|sekolah|kuliah|buku", "1f4da"), ("rumah|keluarga|anak|ibu|ayah|bapak", "1f3e0"),
-    ("hp|handphone|aplikasi|internet|ai", "1f4f1"), ("mati|meninggal|takut|seram|hantu|jin|setan|iblis", "1f47b"),
-    ("mahal|murah|harga", "1f3f7"),
+    ("uang|duit|gaji|kaya|cuan|bisnis|jual|untung|profit|investasi|hemat", "1f4b0"),
+    ("cinta|sayang|hati|nikah|istri|suami|pacar", "2764"),
+    ("api|panas|viral|hebat|keren|fyp|trending|meledak|populer", "1f525"),
+    ("ide|pikir|otak|ilmu|belajar|paham|tips|trik|kunci|rahasia", "1f4a1"),
+    ("waktu|jam|cepat|lambat|telat|detik", "23f0"),
+    ("rahasia|diam|bisik", "1f92b"),
+    ("penting|bahaya|awas|hati-hati|peringatan", "26a0"),
+    ("salah|jangan|dilarang|gagal|zonk|rugi|boncos|rungkad", "274c"),
+    ("benar|betul|berhasil|sukses|bisa|gacor|menang|hoki", "2705"),
+    ("lucu|ketawa|tertawa|ngakak|kocak", "1f602"),
+    ("ternyata|kaget|gila|parah|serius|syok|waduh|anjir", "1f631"),
+    ("allah|tuhan|doa|sholat|salat|ibadah|quran|alquran|nabi|islam", "1f932"),
+    ("makan|lapar|masak|kopi", "1f37d"),
+    ("kerja|kantor|karier|karir", "1f4bc"),
+    ("sehat|olahraga|kuat|otot", "1f4aa"),
+    ("uji|tes|soal|sekolah|kuliah|buku", "1f4da"),
+    ("rumah|keluarga|anak|ibu|ayah|bapak", "1f3e0"),
+    ("hp|handphone|aplikasi|internet|ai|game|gaming|mabar|topup|diamond|skin", "1f4f1"),
+    ("mati|meninggal|takut|seram|hantu|jin|setan|iblis", "1f47b"),
+    ("mahal|murah|harga|diskon", "1f3f7"),
 ]
 EMOJI_RE = [(re.compile(f"^({pola})"), kode) for pola, kode in EMOJI]
 EMOJI_DIR = Path(__file__).resolve().parent / "emoji"
+EMOJI_UNICODE_KE_HEX = {
+    "💰": "1f4b0", "❤️": "2764", "🔥": "1f525", "💡": "1f4a1", "⏰": "23f0",
+    "🤫": "1f92b", "⚠️": "26a0", "❌": "274c", "✅": "2705", "😂": "1f602",
+    "😱": "1f631", "🤲": "1f932", "🍽️": "1f37d", "💼": "1f4bc", "💪": "1f4aa",
+    "📚": "1f4da", "🏠": "1f3e0", "📱": "1f4f1", "👻": "1f47b", "🏷️": "1f3f7",
+}
 
 
 def emoji_untuk(w: str) -> str | None:
@@ -1116,13 +1196,22 @@ def emoji_untuk(w: str) -> str | None:
     return next((kode for pola, kode in EMOJI_RE if b and pola.match(b)), None)
 
 
-def rencana_emoji(kal: list[Kalimat], klip: Klip, per: int) -> list[tuple[float, float, str]]:
+def rencana_emoji(kal: list[Kalimat], klip: Klip, per: int, kustom: dict | None = None) -> list[tuple[float, float, str]]:
     """(mulai, selesai, kode) relatif klip: tiap grup subtitle yang berisi kata ber-emoji."""
     kata = [k for s in kal for k in s.kata if k.selesai > klip.mulai and k.mulai < klip.selesai]
     out = []
+    kustom = kustom or {}
     for i in range(0, len(kata), per):
         grup = kata[i:i + per]
-        kode = next((e for e in (emoji_untuk(x.teks) for x in grup) if e), None)
+        kode = None
+        for x in grup:
+            norm_k = _norm(x.teks)
+            if norm_k in kustom and isinstance(kustom[norm_k], dict) and kustom[norm_k].get("emoji"):
+                em = kustom[norm_k]["emoji"]
+                kode = EMOJI_UNICODE_KE_HEX.get(em, em)
+                break
+        if not kode:
+            kode = next((e for e in (emoji_untuk(x.teks) for x in grup) if e), None)
         if kode and (EMOJI_DIR / f"{kode}.png").exists():
             out.append((max(grup[0].mulai - klip.mulai, 0), grup[-1].selesai - klip.mulai, kode))
     return out
@@ -1183,8 +1272,12 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     baris = []
     sensor_aktif = bool(g.get("sensor", False) or c.get("sensor", False))
     bersih = lambda t: (sensor_teks(t) if sensor_aktif else t).replace("{", "").replace("}", "")  # noqa: E731
-    if g.get("banner", True) and klip.judul:
-        teks = bersih(f"{g.get('awalan', '')}{klip.judul}{g.get('akhiran', '')}")
+    if g.get("banner", False) and klip.judul:  # default OFF — pengguna aktifkan di "Banner judul hook"
+        awalan = str(g.get("awalan", "")).strip()
+        akhiran = str(g.get("akhiran", "")).strip()
+        inti = str(klip.judul).strip()
+        parts = [p for p in (awalan, inti, akhiran) if p]
+        teks = bersih(" ".join(parts))
         baris.append(f"Dialogue: 1,{waktu_ass(0)},{waktu_ass(b - a)},Banner,,0,0,0,,{ubah_huruf(teks, 'kapital')}")
     elif g.get("judul_buka", True) and klip.judul:  # judul pembuka 3 dtk (bila banner tidak dipakai)
         teks = bersih(tanpa_emoji(klip.judul))
@@ -1215,9 +1308,14 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 if sl - m < 0.02:  # baris berdurasi nol membuat libass menghilangkan judul pembuka → lewati
                     continue
                 isi = []
+                custom_styles = g.get("kata_kustom") or {}
+                user_sorot = warna_ass(g.get("warna_sorot", "#3DFF8A"))
                 for x, t in zip(grup, teks):
                     kk = _norm(x.teks) in kunci
-                    hijau = "{\\c" + HIJAU + "&}" + t + "{\\r}" if kk else t  # kata kunci = hijau
+                    norm_k = _norm(x.teks)
+                    warna_custom = custom_styles.get(norm_k, {}).get("color") if isinstance(custom_styles.get(norm_k), dict) else None
+                    warna_sorot = warna_ass(warna_custom) if warna_custom else warna_sentimen_kata(x.teks, user_sorot)
+                    hijau = "{\\c" + warna_sorot + "&}" + t + "{\\r}" if (kk or warna_custom) else t
                     if mode == "polos":
                         isi.append(hijau)
                     elif mode == "tebal":
@@ -1226,25 +1324,27 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                     elif mode == "terbaca":
                         isi.append("{\\c" + putih + "&}" + t + "{\\r}" if x is aktif else hijau)
                     elif mode == "kotak":  # kotak warna di belakang kata aktif (tepi tebal sewarna = blok), teks gelap
-                        isi.append("{\\c&H00111111&\\3c" + sorot + "&\\bord18\\shad0\\fscx104\\fscy104}" + t + "{\\r}"
-                                   if x is aktif else hijau)
+                        kotak_clr = warna_sorot if x is aktif else sorot
+                        isi.append("{\\c&H00111111&\\3c" + kotak_clr + "&\\bord18\\shad0\\fscx104\\fscy104}" + t + "{\\r}"
+                                   if (x is aktif or kk) else hijau)
                     elif mode in ("pop", "komik"):
-                        warna = "{\\c" + HIJAU + "&}" if kk else ""
+                        warna = "{\\c" + warna_sorot + "&}" if (kk or warna_custom) else ""
                         if x is aktif:
-                            skala = "125" if mode == "komik" else "110"
+                            skala = "125" if mode == "komik" else "118"
+                            # Animasi Spring Bounce elastis: memantul ke skala normal
                             isi.append("{" + warna.strip("{}") + "\\fscx" + skala + "\\fscy" + skala +
-                                       "\\t(0,110,\\fscx106\\fscy106)}" + t + "{\\r}")
+                                       "\\t(0,120,\\fscx106\\fscy106)}" + t + "{\\r}")
                         else:
                             isi.append(warna + t + ("{\\r}" if warna else ""))
                     else:  # warna
-                        isi.append("{\\c" + sorot + "&\\fscx110\\fscy110}" + t + "{\\r}" if x is aktif else hijau)
+                        isi.append("{\\c" + (warna_sorot if x is aktif else sorot) + "&\\fscx110\\fscy110}" + t + "{\\r}" if x is aktif else hijau)
                 awal = "{\\fscx70\\fscy70\\t(0,120,\\fscx100\\fscy100)}" if mode == "pop" and j == 0 else ""
                 baris.append(f"Dialogue: 0,{waktu_ass(m)},{waktu_ass(sl)},Utama,,0,0,0,,{awal}{' '.join(isi)}")
     out.write_text(kepala + "\n".join(baris) + "\n", encoding="utf-8")
 
 
 def detik_kunci(kal: list[Kalimat], klip: Klip) -> list[float]:
-    """Detik (relatif klip) kata pemikat (hook) — atau kata kunci bila tidak ada — untuk zoom halus. Jarak ≥ 3 dtk, maks 8."""
+    """Detik (relatif klip) kata pemikat (hook) untuk zoom halus. Jarak ≥ 5 dtk, maks 3."""
     kata = [k for s in kal for k in s.kata if k.selesai > klip.mulai and k.mulai < klip.selesai]
     calon = [k for k in kata if is_hook(k.teks)]
     if not calon:
@@ -1252,9 +1352,9 @@ def detik_kunci(kal: list[Kalimat], klip: Klip) -> list[float]:
         calon = [k for k in kata if _norm(k.teks) in kunci]
     hasil: list[float] = []
     for k in calon:
-        if not hasil or k.mulai - klip.mulai - hasil[-1] >= 3:
+        if not hasil or k.mulai - klip.mulai - hasil[-1] >= 5:  # jarak min 5 dtk — cegah zoom bertumpuk
             hasil.append(max(k.mulai - klip.mulai, 0))
-    return hasil[:8]
+    return hasil[:3]  # max 3 zoom per klip
 
 
 # ── 6b. B-roll: file sendiri atau Pixabay (kunci API milik pengguna) ──────────
@@ -1411,7 +1511,17 @@ def render(file: Path, klip: Klip, kal: list[Kalimat], out: Path, kerja: Path, w
     graf = []
     bar_atas = 0
 
-    if layout == "split":
+    if layout == "podcast_auto":
+        # Podcast 1 Layar Penuh 9:16: Kamera otomatis fokus dan mengikuti pembicara aktif (Active Speaker Tracking)
+        posisi_dua, _ = jejak_podcast_cerdas(file, klip.mulai, klip.selesai, w, h)
+        p1_x = float(g.get("podcast_p1_x", (posisi_dua[0]["x"] if posisi_dua and len(posisi_dua) > 0 else 0.28)))
+        p2_x = float(g.get("podcast_p2_x", (posisi_dua[1]["x"] if posisi_dua and len(posisi_dua) > 1 else 0.72)))
+        p_zoom = max(float(g.get("podcast_zoom", 1.30)), 1.0)
+        p_skala = 1.0 / p_zoom
+        jejak = jejak_podcast_auto(file, klip.mulai, klip.selesai, w, h, p1_x, p2_x)
+        crop = potong_jejak(w, h, 9 / 16, jejak, skala=p_skala, cy=0.36)
+        graf.append(f"[0:v]{crop},scale=1080:1920:flags=lanczos,setsar=1[vid]")
+    elif layout == "split":
         # dua pembicara podcast: smart auto transition antara 1 shot penuh & 2 layar split
         posisi_dua, rentang_dua = jejak_podcast_cerdas(file, klip.mulai, klip.selesai, w, h)
         split_ratio = float(g.get("podcast_split_ratio", 50)) / 100.0
@@ -1430,18 +1540,18 @@ def render(file: Path, klip: Klip, kal: list[Kalimat], out: Path, kerja: Path, w
         jejak = jejak_wajah(file, klip.mulai, klip.selesai, w, h) if fokus in ("auto", "otomatis") else [(0.0, single_x)]
         crop_single = potong_jejak(w, h, 9 / 16, jejak) if fokus in ("auto", "otomatis") else potong(w, h, 9 / 16, single_x)
 
-        total_dua = sum(end - start for start, end in rentang_dua)
-        auto_transisi = bool(g.get("podcast_auto_transition", True))
+        total_dua = sum(end - start for start, end in rentang_dua) if rentang_dua else 0
+        auto_transisi = bool(g.get("podcast_auto_transition", False))  # default False: jika pengguna memilih Split 2 Layar, selalu berikan split 2 layar
 
-        if not posisi_dua or total_dua < 0.5:
-            # Video hanya menyorot 1 orang -> otomatis 9:16 penuh
-            graf.append(f"[0:v]{crop_single},scale=1080:1920:flags=lanczos,setsar=1[vid]")
-        elif not auto_transisi or (total_dua >= (durasi - 1.2) and len(rentang_dua) <= 1):
-            # Video seluruhnya 2 orang atau pengguna mematikan auto-transisi -> split 2 layar
+        if not auto_transisi or not rentang_dua or total_dua >= (durasi - 1.2):
+            # Pengguna memilih Split 2 Layar -> selalu tampilkan split 2 layar (Pembicara 1 atas & Pembicara 2 bawah)
             graf.append("[0:v]split=2[va][vb]")
             graf.append(f"[va]{potong(w, h, 1080 / h_atas, pos_atas, 0.38, p_zoom)},scale=1080:{h_atas}:flags=lanczos,setsar=1[atas]")
             graf.append(f"[vb]{potong(w, h, 1080 / h_bawah, pos_bawah, 0.38, p_zoom)},scale=1080:{h_bawah}:flags=lanczos,setsar=1[bawah]")
             graf.append("color=c=0x111111:s=1080x4:d=1[gp];[atas][gp][bawah]vstack=inputs=3[vid]")
+        elif total_dua < 0.5:
+            # Video hanya menyorot 1 orang -> otomatis 9:16 penuh
+            graf.append(f"[0:v]{crop_single},scale=1080:1920:flags=lanczos,setsar=1[vid]")
         else:
             # Transisi cerdas: Shot 1 orang = 9:16 penuh; Shot 2 orang (wide) = split 2 layar
             graf.append("[0:v]split=3[vsingle][va][vb]")
@@ -1536,6 +1646,12 @@ def render(file: Path, klip: Klip, kal: list[Kalimat], out: Path, kerja: Path, w
         else:
             crop = potong(w, h, 9 / 16, cx)
         graf.append(f"[0:v]{crop},scale=1080:1920:flags=lanczos,setsar=1[vid]")
+    elif g.get("kanvas_mode") == "asli":
+        r = RASIO.get(rasio, 1.0)
+        out_w, out_h = (1080, 1080) if rasio == "1:1" else ((1440, 1080) if rasio == "4:3" else (1920, 1080))
+        crop = potong_jejak(w, h, r, jejak_wajah(file, klip.mulai, klip.selesai, w, h)) if fokus in ("auto", "otomatis") \
+            else potong(w, h, r, cx)
+        graf.append(f"[0:v]{crop},scale={out_w}:{out_h}:flags=lanczos,setsar=1[vid]")
     else:
         r = RASIO.get(rasio, 1.0)
         ih = int(1080 / r) // 2 * 2
@@ -1552,16 +1668,16 @@ def render(file: Path, klip: Klip, kal: list[Kalimat], out: Path, kerja: Path, w
 
     c = gaya_akhir(g)
     v = "vid"  # label video saat ini di filtergraph
-    # zoom punch-in singkat pada kata kunci
+    # zoom punch-in halus pada kata kunci (default OFF — aktifkan via opsi "Zoom kata kunci")
     if c.get("zoom"):
         tt = detik_kunci(kal, klip)
         if tt:
             import cv2
             cap = cv2.VideoCapture(str(file)); fps = cap.get(cv2.CAP_PROP_FPS) or 30; cap.release()
-            # naik cepat 0,25 dtk lalu turun pelan 1,25 dtk ke 1,0 (maks 1,08)
-            z = "+".join(f"if(between(it,{t - 0.1:.2f},{t + 0.15:.2f}),(it-{t - 0.1:.2f})/0.25,"
-                         f"if(between(it,{t + 0.15:.2f},{t + 1.4:.2f}),1-(it-{t + 0.15:.2f})/1.25,0))" for t in tt)
-            graf.append(f"[{v}]zoompan=z='1+0.08*min({z},1)':x='iw/2-(iw/zoom/2)':y='ih*0.4-(ih/zoom*0.4)':d=1:s=1080x1920:fps={fps:.3f}[vz]")
+            # naik pelan 0,4 dtk lalu turun sangat pelan 2 dtk ke 1,0 (maks 1,04 = 4% saja)
+            z = "+".join(f"if(between(it,{t:.2f},{t + 0.4:.2f}),(it-{t:.2f})/0.4,"
+                         f"if(between(it,{t + 0.4:.2f},{t + 2.4:.2f}),1-(it-{t + 0.4:.2f})/2.0,0))" for t in tt)
+            graf.append(f"[{v}]zoompan=z='1+0.04*min({z},1)':x='iw/2-(iw/zoom/2)':y='ih*0.4-(ih/zoom*0.4)':d=1:s=1080x1920:fps={fps:.3f}[vz]")
             v = "vz"
     masukan_extra: list[str] = []
     n_in = 1  # input 0 = video sumber
@@ -1614,7 +1730,7 @@ def render(file: Path, klip: Klip, kal: list[Kalimat], out: Path, kerja: Path, w
             hiasan("sobek", 0.0)
     # emoji otomatis (gambar Twemoji) di atas baris subtitle
     if c.get("emoji") and g.get("subtitle", True):
-        rencana = rencana_emoji(kal, klip, c["per"])
+        rencana = rencana_emoji(kal, klip, c["per"], g.get("kata_kustom"))
         y_emoji = int(1920 * float(g.get("posisi_y", 72)) / 100 - c["uk"] * 1.4 - 150)
         for kode in dict.fromkeys(x[2] for x in rencana):
             masukan_extra += ["-loop", "1", "-t", f"{durasi:.2f}", "-i", str(EMOJI_DIR / f"{kode}.png")]
@@ -1624,9 +1740,12 @@ def render(file: Path, klip: Klip, kal: list[Kalimat], out: Path, kerja: Path, w
             v = f"ve{n_in}"
             n_in += 1
     # progress bar tipis di bawah (maju sesuai durasi klip)
-    if c.get("progres"):
-        graf.append(f"color=c={c['warna']}:s=1080x10:r=30:d={durasi:.2f}[pb]")
-        graf.append(f"[{v}][pb]overlay=x='-W+W*t/{durasi:.2f}':y=H-10:eof_action=pass[vp]")
+    if c.get("progres", True) and g.get("progress_bar", True):
+        warna_pb = g.get("warna_progress", "cyan")
+        kode_warna = {"kuning": "#FFD400", "hijau": "#3DFF8A", "pelangi": "#00F5FF"}.get(warna_pb, "#00F5FF")
+        tebal_pb = int(g.get("tebal_progress", 10))
+        graf.append(f"color=c={kode_warna}:s=1080x{tebal_pb}:r=30:d={durasi:.2f}[pb]")
+        graf.append(f"[{v}][pb]overlay=x='-W+W*t/{durasi:.2f}':y=H-{tebal_pb}:eof_action=pass[vp]")
         v = "vp"
     if g.get("subtitle", True) or g.get("banner", True) or c.get("akun") or (g.get("judul_buka", True) and klip.judul) \
             or c.get("watermark"):
@@ -1651,8 +1770,13 @@ def render(file: Path, klip: Klip, kal: list[Kalimat], out: Path, kerja: Path, w
     musik = g.get("musik")
     if musik and Path(musik).exists():
         masukan += ["-stream_loop", "-1", "-i", str(Path(musik).resolve())]
-        aud.append(f"[{idx}:a]volume={float(g.get('volume_musik', 18)) / 100:.2f},atrim=0:{durasi:.2f},"
-                   f"afade=t=out:st={max(durasi - 1.5, 0):.2f}:d=1.5[am]")
+        vol_m = float(g.get("volume_musik", 18)) / 100
+        aud.append(f"[{idx}:a]volume={vol_m:.2f},atrim=0:{durasi:.2f},"
+                   f"afade=t=out:st={max(durasi - 1.5, 0):.2f}:d=1.5[am_raw]")
+        if g.get("audio_ducking", True):
+            aud.append("[am_raw][a0]sidechaincompress=threshold=0.08:ratio=4:attack=80:release=350[am]")
+        else:
+            aud.append("[am_raw]anull[am]")
         campur.append("[am]")
         idx += 1
     sfx = g.get("sfx")
@@ -1873,7 +1997,7 @@ def main() -> None:
     p.add_argument("--jumlah", type=int, default=3, help="jumlah klip (default 3)")
     p.add_argument("--durasi", type=int, default=30, help="target detik per klip (default 30)")
     p.add_argument("--model", default="small", help="model whisper: tiny/base/small/medium/large-v3")
-    p.add_argument("--bahasa", default="id", help="kode bahasa, mis. id atau en; 'auto' = deteksi otomatis (default id)")
+    p.add_argument("--bahasa", default="auto", help="kode bahasa, mis. id, en, atau 'auto' = deteksi otomatis (default: auto)")
     p.add_argument("--keluar", default="hasil-klip", help="folder hasil")
     p.add_argument("--tanpa-wajah", action="store_true", help="bingkai tengah, jangan ikuti wajah")
     p.add_argument("--tanpa-subtitle", action="store_true")

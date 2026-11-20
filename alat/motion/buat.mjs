@@ -87,12 +87,36 @@ naskah.adegan.forEach((a, i) => {
     if (!existsSync(tujuan)) throw new Error('Suara VoxCPM tidak terbentuk: ' + tujuan);
   } else if (modeSuara === 'say') {
     execFileSync('say', ['-v', suaraMac, '--data-format=LEI16@24000', '-o', tujuan, a.teks]);
-  } else if (modeSuara === 'windows') {
-    // Suara bawaan Windows (SAPI). Pakai suara Bahasa Indonesia kalau terpasang (mis. 'Microsoft Andika').
-    const ps = `Add-Type -AssemblyName System.Speech; $s = New-Object System.Speech.Synthesis.SpeechSynthesizer; ` +
-      `$v = $s.GetInstalledVoices() | Where-Object { $_.VoiceInfo.Culture.Name -eq 'id-ID' } | Select-Object -First 1; ` +
-      `if ($v) { $s.SelectVoice($v.VoiceInfo.Name) }; $s.SetOutputToWaveFile($env:STUDIO_WAV); $s.Speak($env:STUDIO_TEKS); $s.Dispose()`;
-    execFileSync('powershell', ['-NoProfile', '-Command', ps], {env: {...process.env, STUDIO_WAV: resolve(tujuan), STUDIO_TEKS: a.teks}});
+  } else if (modeSuara === 'windows' || modeSuara === 'natural') {
+    // 1. Prioritas Utama: Suara Natural AI Bahasa Indonesia (Edge-TTS Gadis/Ardi)
+    let suaraOk = false;
+    const skripPy = resolve('suara-natural.py');
+    const suaraPilihan = process.env.SUARA_ID || opsi['suara-id'] || 'id-ID-GadisNeural';
+    try {
+      if (existsSync(skripPy)) {
+        const rPy = spawnSync('python', [skripPy, resolve(tujuan), a.teks, suaraPilihan], {
+          encoding: 'utf8',
+          timeout: 45000,
+        });
+        if (rPy.status === 0 && existsSync(tujuan)) {
+          suaraOk = true;
+          log(`Adegan ${no}: Suara Natural AI (${suaraPilihan}) berhasil dibuat`);
+        } else if (rPy.stderr) {
+          console.warn(`[Edge-TTS] ${rPy.stderr.trim()}`);
+        }
+      }
+    } catch (err) {
+      console.warn(`[Edge-TTS] Gagal: ${err.message}`);
+    }
+
+    // 2. Fallback darurat jika Edge-TTS gagal/offline: Windows SAPI bawaan
+    if (!suaraOk) {
+      log(`Adegan ${no}: Memakai cadangan SAPI Windows lokal...`);
+      const ps = `Add-Type -AssemblyName System.Speech; $s = New-Object System.Speech.Synthesis.SpeechSynthesizer; ` +
+        `$v = $s.GetInstalledVoices() | Where-Object { $_.VoiceInfo.Culture.Name -eq 'id-ID' } | Select-Object -First 1; ` +
+        `if ($v) { $s.SelectVoice($v.VoiceInfo.Name) }; $s.SetOutputToWaveFile($env:STUDIO_WAV); $s.Speak($env:STUDIO_TEKS); $s.Dispose()`;
+      execFileSync('powershell', ['-NoProfile', '-Command', ps], {env: {...process.env, STUDIO_WAV: resolve(tujuan), STUDIO_TEKS: a.teks}});
+    }
   } else {
     a.durasi = a.durasi ?? Math.max(2.5, a.teks.split(/\s+/).length / 2.6);
     delete a.suara;

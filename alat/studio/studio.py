@@ -23,7 +23,7 @@ import time
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import unquote, urlparse
+from urllib.parse import unquote, urlparse, parse_qs
 
 AKAR = Path(__file__).resolve().parent
 ALAT = AKAR.parent
@@ -235,7 +235,7 @@ def ref_suara() -> Path | None:
     return None
 
 
-VERSI_APLIKASI = "2.0.0"
+VERSI_APLIKASI = "2.1.0"
 
 
 def cek_pembaruan(repo: str = "IkhsanFreya/callclip") -> dict:
@@ -462,9 +462,11 @@ def mulai_klip(d: dict) -> dict:
     if not sumber:
         raise ValueError("Isi link YouTube atau pilih file video dulu.")
     folder = proyek_baru("klip")
+    bahasa = d.get("bahasa", "auto")
     cmd = [*jalankan_skrip(KLIP / "klip.py"), sumber, "--keluar", str(folder),
            "--jumlah", str(int(d.get("jumlah", 3))), "--durasi", str(int(d.get("durasi", 30))),
            "--ai", penyedia_ai(d.get("ai")), "--model", d.get("model", "small"),
+           "--bahasa", bahasa,
            "--warna", d.get("warna", "#FFB020")]
     cmd.append("--hanya-analisis")
     if d.get("arahan"):
@@ -580,6 +582,103 @@ def mulai_render_klip(d: dict) -> dict:
     return {"proyek": nama}
 
 
+def buat_naskah_lokal(topik: str, gaya: str = "neon") -> dict:
+    t_clean = topik.strip()
+    low = t_clean.lower()
+
+    # 1. Game / Gaming / PC
+    if any(k in low for k in ("game", "gaming", "pc", "mabar", "esport")):
+        return {
+            "judul": "3 Game PC Terpopuler",
+            "gaya": gaya,
+            "handle": "calclip.in",
+            "adegan": [
+                {"judul": "3 Game PC Terpopuler", "teks": "Ini dia tiga game PC paling ramai dan bikin ketagihan di Indonesia saat ini!", "kunci": ["game", "indonesia"], "ikon": "🎮"},
+                {"judul": "1. Valorant & Point Blank", "teks": "Game tembak-menembak taktis legendaris dengan jutaan pemain aktif setiap harinya.", "kunci": ["taktis", "pemain"], "ikon": "🎯"},
+                {"judul": "2. Dota 2 & Steam", "teks": "Komunitas esports terbesar dengan strategi pertempuran tim tiada tanding.", "kunci": ["esports", "komunitas"], "ikon": "⚡"},
+                {"judul": "3. GTA V Roleplay", "teks": "Server kota virtual Indonesia yang selalu seru, viral, dan penuh drama tak terduga.", "kunci": ["virtual", "viral"], "ikon": "🚀"},
+                {"judul": "Apa Game Favoritmu?", "teks": "Tulis game jagoanmu di kolom komentar dan bagikan ke teman mabar kamu sekarang!", "kunci": ["komentar", "bagikan"], "ikon": "🔥"}
+            ]
+        }
+
+    # 2. Sains / Semesta / Fisika
+    if any(k in low for k in ("sains", "alam", "semesta", "fisika", "antariksa")):
+        return {
+            "judul": "Fakta Sains Menakjubkan",
+            "gaya": gaya,
+            "handle": "calclip.in",
+            "adegan": [
+                {"judul": "Fakta Sains Menakjubkan", "teks": "Pernahkah kamu membayangkan keajaiban luar biasa yang ada di alam semesta kita?", "kunci": ["sains", "semesta"], "ikon": "💡"},
+                {"judul": "1. Kecepatan Cahaya", "teks": "Cahaya mampu mengitari bumi hingga tujuh setengah kali hanya dalam satu detik.", "kunci": ["cahaya", "bumi"], "ikon": "⚡"},
+                {"judul": "2. Misteri Laut Dalam", "teks": "Lebih dari delapan puluh persen kedalaman lautan bumi belum pernah terjamah manusia.", "kunci": ["lautan", "misteri"], "ikon": "🌊"},
+                {"judul": "3. Waktu di Antariksa", "teks": "Gravitasi masif dapat memperlambat jalannya waktu nyata sesuai teori relativitas.", "kunci": ["gravitasi", "waktu"], "ikon": "🪐"},
+                {"judul": "Keren Banget Kan?", "teks": "Simpan video ini sekarang dan ikuti untuk fakta sains luar biasa berikutnya!", "kunci": ["simpan", "sains"], "ikon": "🔥"}
+            ]
+        }
+
+    # 3. Produktivitas / Pagi / Kebiasaan
+    if any(k in low for k in ("pagi", "produktivitas", "kebiasaan", "fokus", "rutinitas")):
+        return {
+            "judul": "3 Tips Produktivitas Pagi",
+            "gaya": gaya,
+            "handle": "calclip.in",
+            "adegan": [
+                {"judul": "3 Tips Produktivitas Pagi", "teks": "Lakukan tiga kebiasaan ini agar harimu penuh energi dan fokus sepanjang hari.", "kunci": ["kebiasaan", "fokus"], "ikon": "⏰"},
+                {"judul": "1. Jangan Sentuh Ponsel", "teks": "Hindari membuka ponsel selama tiga puluh menit pertama setelah kamu bangun tidur.", "kunci": ["hindari", "ponsel"], "ikon": "📱"},
+                {"judul": "2. Hidrasi Segelas Air", "teks": "Minum air putih hangat langsung merehidrasi organ tubuh dan mengaktifkan energimu.", "kunci": ["air", "energi"], "ikon": "💧"},
+                {"judul": "3. Sinar Matahari 5 Menit", "teks": "Dapatkan paparan sinar matahari pagi untuk mengunci ritme sirkadian dan konsentrasi.", "kunci": ["matahari", "konsentrasi"], "ikon": "☀️"},
+                {"judul": "Mulai Besok Pagi!", "teks": "Simpan video ini sekarang dan buktikan hasilnya di pagi harimu besok!", "kunci": ["simpan", "sekarang"], "ikon": "🔥"}
+            ]
+        }
+
+    # 4. Komunikasi / Psikologi
+    if any(k in low for k in ("komunikasi", "psikologi", "bicara", "hipnotik", "ngobrol")):
+        return {
+            "judul": "Trik Komunikasi Hipnotik",
+            "gaya": gaya,
+            "handle": "calclip.in",
+            "adegan": [
+                {"judul": "Trik Komunikasi Hipnotik", "teks": "Gunakan tiga trik psikologi ini agar perkataanmu selalu didengarkan dan diingat.", "kunci": ["psikologi", "didengarkan"], "ikon": "💡"},
+                {"judul": "1. Sebut Nama Lawan Bicara", "teks": "Menyebut nama seseorang secara natural langsung mengaktifkan rasa percaya diri mereka.", "kunci": ["percaya", "bicara"], "ikon": "🧠"},
+                {"judul": "2. Jeda Dua Detik", "teks": "Berikan jeda sebelum menjawab untuk menunjukkan wibawa dan pemikiran yang matang.", "kunci": ["jeda", "matang"], "ikon": "⏳"},
+                {"judul": "3. Samakan Tempo Bicara", "teks": "Secara halus ikuti ritme bicara lawan bicaramu untuk membangun koneksi instan.", "kunci": ["ritme", "koneksi"], "ikon": "⚡"},
+                {"judul": "Coba Hari Ini!", "teks": "Simpan tips ini sekarang dan praktikkan langsung di obrolanmu hari ini!", "kunci": ["simpan", "sekarang"], "ikon": "🔥"}
+            ]
+        }
+
+    # 5. Finansial / Uang
+    if any(k in low for k in ("finansial", "uang", "investasi", "gaji", "kaya", "usia 20")):
+        return {
+            "judul": "Mindset Finansial Cerdas",
+            "gaya": gaya,
+            "handle": "calclip.in",
+            "adegan": [
+                {"judul": "Mindset Finansial Cerdas", "teks": "Hindari jebakan keuangan ini sebelum menyesal di kemudian hari!", "kunci": ["keuangan", "cerdas"], "ikon": "💰"},
+                {"judul": "1. Stop Utang Konsumtif", "teks": "Jangan membeli barang mahal hanya demi gengsi semu di media sosial.", "kunci": ["gengsi", "utang"], "ikon": "⚠️"},
+                {"judul": "2. Bangun Dana Darurat", "teks": "Amankan tabungan minimal tiga sampai enam bulan pengeluaran untuk proteksi hidupmu.", "kunci": ["tabungan", "darurat"], "ikon": "🛡️"},
+                {"judul": "3. Upgrade Skill Berharga", "teks": "Investasi ilmu dan keahlian adalah aset terbaik yang terus menghasilkan nilai tinggi.", "kunci": ["investasi", "keahlian"], "ikon": "📈"},
+                {"judul": "Mulai Amankan Masa Depan!", "teks": "Simpan video ini sekarang dan mulailah kelola keuanganmu dengan bijak!", "kunci": ["simpan", "bijak"], "ikon": "🔥"}
+            ]
+        }
+
+    # 6. Fallback cerdas untuk topik umum
+    kata = [k for k in re.sub(r"[.,?!]+", "", t_clean).split() if k]
+    judul_ringkas = " ".join(kata[:4]).title() if kata else "Tips Terpenting"
+    kunci_awal = kata[0] if kata else "rahasia"
+    return {
+        "judul": judul_ringkas,
+        "gaya": gaya,
+        "handle": "calclip.in",
+        "adegan": [
+            {"judul": f"Rahasia {judul_ringkas}", "teks": f"Pernah gak sih kamu memikirkan hal paling penting seputar {t_clean}?", "kunci": [kunci_awal, "rahasia"], "ikon": "💡"},
+            {"judul": "1. Pondasi Paling Utama", "teks": f"Langkah pertama yang paling menentukan adalah memahami inti dasar dari {t_clean}.", "kunci": ["dasar", "menentukan"], "ikon": "⚡"},
+            {"judul": "2. Strategi Eksekusi Nyata", "teks": "Kuncinya bukan sekadar teori, melainkan konsistensi aksi kecil yang terus diulang.", "kunci": ["konsistensi", "aksi"], "ikon": "🎯"},
+            {"judul": "3. Hasil Yang Nyata", "teks": "Saat kamu fokus dan disiplin, kemajuan besar akan mulai terlihat dalam waktu singkat.", "kunci": ["kemajuan", "disiplin"], "ikon": "🚀"},
+            {"judul": "Simpan & Terapkan!", "teks": "Simpan video ini sekarang dan bagikan ke temanmu yang butuh info ini!", "kunci": ["simpan", "sekarang"], "ikon": "🔥"}
+        ]
+    }
+
+
 def mulai_motion(d: dict) -> dict:
     topik = (d.get("topik") or "").strip()
     naskah_teks = (d.get("naskah") or "").strip()
@@ -587,8 +686,7 @@ def mulai_motion(d: dict) -> dict:
         raise ValueError("Isi topik, atau tempel naskah JSON.")
     ai = penyedia_ai(d.get("ai"))
     if not naskah_teks and ai == "lokal":
-        raise ValueError("Membuat naskah dari topik butuh AI (Gemini/Ollama/Claude) — atur di Pengaturan, "
-                         "atau tempel naskah JSON dari Claude/Gemini gratis.")
+        naskah_teks = json.dumps(buat_naskah_lokal(topik, d.get("gaya", "neon")), ensure_ascii=False)
     node = cari_node()
     folder = proyek_baru("motion")
     nama = folder.name
@@ -608,7 +706,8 @@ def mulai_motion(d: dict) -> dict:
         # AI menggambar objek SVG per adegan (gagal → video tetap jadi dengan emoji)
         langkah.append(([node, "gambar.mjs", f"naskah/{nama}.json", f"--ai={ai}"], MOTION))
     p = baca_pengaturan()
-    perintah = [node, "buat.mjs", f"naskah/{nama}.json", f"--gaya={gaya}", f"--suara-mac={p.get('SUARA_MAC', 'Damayanti')}"]
+    suara_id = d.get("suara_id") or p.get("SUARA_ID") or "id-ID-GadisNeural"
+    perintah = [node, "buat.mjs", f"naskah/{nama}.json", f"--gaya={gaya}", f"--suara-id={suara_id}", f"--suara-mac={p.get('SUARA_MAC', 'Damayanti')}"]
     if p.get("SUARA") == "voxcpm":
         if not voxcpm_terpasang():
             raise ValueError("Suara AI (VoxCPM) belum dipasang. Buka Pengaturan AI → Suara narator → Pasang suara AI.")
@@ -628,13 +727,13 @@ def mulai_motion(d: dict) -> dict:
         k.hasil = muat_proyek("motion", nama)
 
     KERJA.jalankan("motion", langkah, folder, setelah)
-    return {"proyek": nama}
+    return {"proyek": nama, "id": KERJA.id}
 
 
 def muat_proyek(jenis: str, nama: str) -> dict:
     f = DATA / jenis / nama
     out = {"jenis": jenis, "nama": nama}
-    for berkas in ("klip.json", "info.json", "permintaan.json", "naskah.json"):
+    for berkas in ("klip.json", "info.json", "permintaan.json", "naskah.json", "transkrip.json"):
         p = f / berkas
         if p.exists():
             out[berkas.split(".")[0]] = json.loads(p.read_text(encoding="utf-8-sig"))
@@ -702,6 +801,46 @@ def deteksi_facecam_klip(d: dict) -> dict:
         return {"ada": False, "galat": str(e), "x": 0.10, "y": 0.86, "zoom": 2.4, "sudut": "kiri_bawah"}
 
 
+def deteksi_podcast_klip(d: dict) -> dict:
+    """Deteksi otomatis posisi 2 pembicara podcast (kiri & kanan) untuk mode 1 Layar Penuh & Split."""
+    nama = d.get("nama")
+    folder = DATA / "klip" / nama if nama else None
+    if not folder or not folder.exists():
+        proyek = sorted((DATA / "klip").glob("*"), reverse=True) if (DATA / "klip").exists() else []
+        if proyek:
+            folder = proyek[0]
+    if not folder or not (folder / "info.json").exists():
+        return {"ada": False, "p1_x": 0.28, "p2_x": 0.72, "zoom": 1.30}
+    try:
+        info = json.loads((folder / "info.json").read_text(encoding="utf-8"))
+        file = Path(info.get("sumber", ""))
+        if not file.exists():
+            file = folder / info.get("pratinjau", "sumber.mp4")
+        w, h = info.get("lebar", 1920), info.get("tinggi", 1080)
+        no = int(d.get("no", 1))
+        daftar = json.loads((folder / "klip.json").read_text(encoding="utf-8-sig")) if (folder / "klip.json").exists() else []
+        klip = next((x for x in daftar if x.get("no") == no), (daftar[0] if daftar else None))
+        a = klip["mulai"] if klip else 0.0
+        b = klip["selesai"] if klip else min(6.0, float(info.get("durasi", 6.0)))
+        # Batasi sampel deteksi awal maksimal 6 detik untuk respon instan (< 1 detik di semua CPU)
+        b_cepat = min(a + 6.0, b)
+        import sys
+        if str(KLIP) not in sys.path:
+            sys.path.insert(0, str(KLIP))
+        from klip import jejak_podcast_cerdas
+        posisi_dua, _ = jejak_podcast_cerdas(file, a, b_cepat, w, h)
+        if posisi_dua and len(posisi_dua) >= 2:
+            return {
+                "ada": True,
+                "p1_x": round(posisi_dua[0]["x"], 3),
+                "p2_x": round(posisi_dua[1]["x"], 3),
+                "zoom": 1.30,
+            }
+        return {"ada": False, "p1_x": 0.28, "p2_x": 0.72, "zoom": 1.30}
+    except Exception as e:
+        return {"ada": False, "galat": str(e), "p1_x": 0.28, "p2_x": 0.72, "zoom": 1.30}
+
+
 def daftar_proyek() -> list[dict]:
     out = []
     for jenis in ("klip", "motion"):
@@ -728,16 +867,23 @@ def cek_sistem() -> dict:
 
 # ── HTTP ────────────────────────────────────────────────────────────────────
 class H(BaseHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"
+
     def log_message(self, *a):
         pass
+
+    def do_HEAD(self):
+        self.do_GET()
 
     def _json(self, obj, kode=200):
         b = json.dumps(obj, ensure_ascii=False).encode()
         self.send_response(kode)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(b)))
+        self.send_header("Connection", "keep-alive")
         self.end_headers()
-        self.wfile.write(b)
+        if self.command != "HEAD":
+            self.wfile.write(b)
 
     def _file(self, p: Path):
         if not p.is_file():
@@ -754,17 +900,29 @@ class H(BaseHTTPRequestHandler):
         else:
             self.send_response(200)
         self.send_header("Content-Type", tipe)
-        self.send_header("Content-Disposition", "inline")
+        qs = parse_qs(urlparse(self.path).query)
+        if "unduh" in qs:
+            nama_unduh = qs.get("nama", [p.name])[0]
+            self.send_header("Content-Disposition", f'attachment; filename="{nama_unduh}"')
+        else:
+            self.send_header("Content-Disposition", "inline")
         self.send_header("Accept-Ranges", "bytes")
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Content-Length", str(akhir - mulai + 1))
+        self.send_header("Connection", "keep-alive")
         self.end_headers()
+        if self.command == "HEAD":
+            return
         with open(p, "rb") as fh:
             fh.seek(mulai)
             sisa = akhir - mulai + 1
             while sisa > 0 and (blok := fh.read(min(1 << 16, sisa))):
                 self.wfile.write(blok)
                 sisa -= len(blok)
+        try:
+            self.wfile.flush()
+        except Exception:
+            pass
 
     def _body(self) -> dict:
         n = int(self.headers.get("Content-Length") or 0)
@@ -828,11 +986,21 @@ class H(BaseHTTPRequestHandler):
                 return self._json(jejak_klip(m.group(1), int(m.group(2))))
             if m := re.match(r"^/api/proyek/(klip|motion)/([\w-]+)$", jalur):
                 return self._json(muat_proyek(m.group(1), m.group(2)))
-            if m := re.match(r"^/(?:stream|berkas)/(klip|motion)/([\w-]+)/([\w.-]+)$", jalur):
+            if m := re.match(r"^/(?:stream|berkas)/(klip|motion)/([\w-]*)/([\w.-]+)$", jalur):
+                jenis = m.group(1)
+                proy = m.group(2)
+                if not proy:
+                    daftar_p = sorted((DATA / jenis).glob("*"), reverse=True) if (DATA / jenis).exists() else []
+                    proy = daftar_p[0].name if daftar_p else ""
                 nama_file = m.group(3)
-                p = DATA / m.group(1) / m.group(2) / nama_file
+                folder = DATA / jenis / proy
+                p = folder / nama_file
                 if not p.is_file() and not nama_file.endswith(".mp4"):
-                    p = DATA / m.group(1) / m.group(2) / f"{nama_file}.mp4"
+                    p = folder / f"{nama_file}.mp4"
+                if not p.is_file() and (folder / ".kerja" / nama_file).is_file():
+                    p = folder / ".kerja" / nama_file
+                if not p.is_file() and (folder / ".kerja" / f"{nama_file}.mp4").is_file():
+                    p = folder / ".kerja" / f"{nama_file}.mp4"
                 return self._file(p)
             if m := re.match(r"^/font/([\w.-]+\.ttf)$", jalur):  # font preset klip (OFL) untuk pratinjau
                 return self._file(KLIP / "font" / m.group(1))
@@ -912,6 +1080,8 @@ class H(BaseHTTPRequestHandler):
                 return self._json(mulai_render_klip(d))
             if jalur == "/api/deteksi-facecam":
                 return self._json(deteksi_facecam_klip(d))
+            if jalur == "/api/deteksi-podcast":
+                return self._json(deteksi_podcast_klip(d))
             if jalur == "/api/hapus-proyek":
                 f = (DATA / d.get("jenis", "") / re.sub(r"[^\w-]", "", d.get("nama", ""))).resolve()
                 if f.is_dir() and DATA.resolve() in f.parents and f.parent.name in ("klip", "motion"):

@@ -1,0 +1,37 @@
+{
+  "judul": "3 Rahasia Produktif Pagi Hari",
+  "gaya": "neon",
+  "handle": "calclip.in",
+  "adegan": [
+    {
+      "judul": "Pernah Merasa Lelah Saat Bangun?",
+      "teks": "Pernah gak sih baru bangun tidur tapi badan udah capek banget?",
+      "kunci": ["capek", "bangun"],
+      "ikon": "⏰"
+    },
+    {
+      "judul": "Jangan Langsung Buka HP",
+      "teks": "Langkah pertama, jangan pernah sentuh layar ponsel selama tiga puluh menit pertama.",
+      "kunci": ["jangan", "ponsel"],
+      "ikon": "📱"
+    },
+    {
+      "judul": "Minum Segelas Air Hangat",
+      "teks": "Segelas air hangat langsung merehidrasi otak dan mengaktifkan metabolisme tubuhmu.",
+      "kunci": ["air", "otak"],
+      "ikon": "💧"
+    },
+    {
+      "judul": "Sinar Matahari Pagi",
+      "teks": "Dapatkan sinar matahari pagi lima menit untuk mengunci fokus energi sepanjang hari.",
+      "kunci": ["matahari", "fokus"],
+      "ikon": "☀️"
+    },
+    {
+      "judul": "Simpan Tips Ini",
+      "teks": "Simpan video ini sekarang dan rasakan perbedaannya besok pagi!",
+      "kunci": ["simpan", "sekarang"],
+      "ikon": "🔥"
+    }
+  ]
+}

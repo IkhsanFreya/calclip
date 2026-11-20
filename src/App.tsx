@@ -402,10 +402,19 @@ export function App() {
   };
 
   // Main 60 FPS Procedural Render Loop
+  const currentViewRef = useRef(currentView);
+  currentViewRef.current = currentView;
+
   useEffect(() => {
     let animId: number;
 
     const renderLoop = () => {
+      if (currentViewRef.current === 'klip') {
+        // LayarKlip controls its own video stream and canvas loop; bypass synthetic timer in App.tsx
+        animId = requestAnimationFrame(renderLoop);
+        return;
+      }
+
       const now = performance.now();
       const dt = Math.min(0.1, (now - lastFrameTimeRef.current) / 1000);
       lastFrameTimeRef.current = now;
