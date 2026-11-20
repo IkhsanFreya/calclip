@@ -30,7 +30,7 @@ LicenseFile=alat\LISENSI.md
 
 ; Lokasi File Installer Hasil Kompilasi
 OutputDir=hasil-installer
-OutputBaseFilename=CalClip-v2.0-Windows-Setup
+OutputBaseFilename=CalClip-v2.1-Windows-Setup
 SetupIconFile=dist\ikon.ico
 UninstallDisplayIcon={app}\dist\ikon.ico
 ChangesAssociations=yes

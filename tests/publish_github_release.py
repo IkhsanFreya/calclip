@@ -19,10 +19,10 @@ headers = {
 }
 
 repo = 'IkhsanFreya/calclip'
-tag = 'v2.0.0'
-title = 'CalClip.IN v2.0.0 - Production Release (Windows 64-bit)'
+tag = 'v2.1.0'
+title = 'CalClip.IN v2.1.0 - Production Release (Windows 64-bit)'
 
-body = """## CalClip.IN v2.0.0 — Production Release (Windows 64-bit)
+body = """## CalClip.IN v2.1.0 — Production Release (Windows 64-bit)
 
 CalClip.IN adalah aplikasi desktop pemrosesan video otomatis untuk mengonversi video panjang menjadi klip vertikal rasio 9:16 (TikTok, Reels, Shorts) serta generator Motion AI terintegrasi. Berjalan secara mandiri di komputer lokal tanpa memerlukan konfigurasi dependensi manual.
 
@@ -32,10 +32,10 @@ CalClip.IN adalah aplikasi desktop pemrosesan video otomatis untuk mengonversi v
 
 Silakan unduh berkas aplikasi resmi pada daftar **Assets** di bawah:
 
-| Berkas Unduhan | Ukuran | Format | Deskripsi |
-| :--- | :---: | :---: | :--- |
-| **[`CalClip-v2.0-Windows-Setup.exe`](https://github.com/IkhsanFreya/calclip/releases/download/v2.0.0/CalClip-v2.0-Windows-Setup.exe)** | **148.51 MB** | Installer Mandiri | **Rekomendasi Utama:** Wizard instalasi satu klik untuk Windows 10 & 11 (64-bit). |
-| **[`CalClip-v2.0-Windows-Setup.zip`](https://github.com/IkhsanFreya/calclip/releases/download/v2.0.0/CalClip-v2.0-Windows-Setup.zip)** | **148.51 MB** | Arsip ZIP Installer | Untuk pengguna yang membutuhkan berkas installer dalam format `.zip`. |
+| Berkas Unduhan | Format | Deskripsi |
+| :--- | :---: | :--- |
+| **[`CalClip-v2.1-Windows-Setup.exe`](https://github.com/IkhsanFreya/calclip/releases/download/v2.1.0/CalClip-v2.1-Windows-Setup.exe)** | Installer Mandiri | **Rekomendasi Utama:** Wizard instalasi satu klik untuk Windows 10 & 11 (64-bit). |
+| **[`CalClip-v2.1-Windows-Setup.zip`](https://github.com/IkhsanFreya/calclip/releases/download/v2.1.0/CalClip-v2.1-Windows-Setup.zip)** | Arsip ZIP Installer | Untuk pengguna yang membutuhkan berkas installer dalam format `.zip`. |
 
 > [!NOTE]
 > **PEMBERITAHUAN MENGENAI `Source code (zip)` & `Source code (tar.gz)` DI DAFTAR ASSETS:**
@@ -45,22 +45,29 @@ Silakan unduh berkas aplikasi resmi pada daftar **Assets** di bawah:
 
 ---
 
-### Ringkasan Pembaruan dan Fitur
+### Ringkasan Pembaruan dan Fitur v2.1.0
 
-#### Dynamic Auto-Reframing & Kestabilan Kamera
-- **YuNet ONNX Face Tracker**: Pelacakan posisi wajah subjek secara real-time pada setiap adegan video.
-- **Filter Kalman Linear 2D**: Meredam getaran kamera (*camera jitter*) hingga >95% sehingga transisi framing 9:16 tetap halus, tenang, dan stabil.
-- **Deadzone Hysteresis**: Mencegah goyangan pembingkaian saat subjek hanya melakukan pergerakan kepala kecil.
+#### 🎯 Subtitle Dinamis Word-by-Word (Akurasi Whisper Timestamp)
+- **Sinkronisasi Karaoke Real-Time**: Subtitle di kanvas pratinjau bergerak dinamis kata demi kata mengikuti alur bicara asli dari transkrip Whisper (`transkrip.json`).
+- **Smooth 60 FPS Render Loop**: Highlight kata yang sedang diucapkan berganti mulus secara real-time tanpa teks beku.
+- **Graceful Segment Holding**: Teks tetap tampil rapi di layar saat jeda bicara tanpa berkedip atau menghilang tiba-tiba.
 
-#### Mesin Subtitle & ASR Cerdas
-- **Faster-Whisper Terkuantisasi (INT8)**: Inferensi ASR luring berkecepatan tinggi dengan kebutuhan RAM minimal.
-- **Prompt Conditioning Percakapan Santai Indonesia**: Meningkatkan akurasi kosakata informal, slang, dan *code-switching* Bahasa Indonesia.
-- **Auto CPU Fallback**: Perlindungan otomatis beralih ke mode CPU (int8) jika pustaka driver CUDA GPU tidak terpasang di sistem pengguna.
-- **Preset Gaya Influencer**: Shortcut 1-klik untuk gaya Alex Hormozi, MrBeast, Ali Abdaal, dan TikTok Neon.
+#### 🎮 Smart Facecam Framing & Zoom Ekstra (hingga 5.0x)
+- **Extended Zoom (1.0x - 5.0x)**: Batas zoom diperluas hingga 5.0x sehingga webcam kecil di sudut video gameplay (Mobile Legends / game lainnya) dapat di-crop rapat ke wajah & pundak streamer.
+- **Eliminasi Banner UI Game**: Memotong rapi area luar webcam sehingga banner diskon dan HUD game tidak bocor ke frame wajah atas.
+- **Preset & Auto-Detection Cerdas**: Klik tombol preset sudut (misal: *Kiri Bwh*) otomatis menerapkan zoom optimal `3.6x` dengan koordinat presisi (`X: 11%`, `Y: 87%`).
+- **Proporsi Layar Seimbang**: Default tinggi kamera atas diset ke `45%` (rentang sehat 30% - 65%), menghilangkan celah blur kosong di bagian tengah.
 
-#### Distribusi & Keamanan
-- **Instalasi Mandiri Ringkas**: Runtime lengkap (Python 3.12, WebView2, FFmpeg, CTranslate2) tanpa perlu instalasi manual terpisah.
-- **Keamanan Data**: Berjalan 100% lokal di komputer tanpa mengirim video ke server pihak ketiga mana pun (*offline-first*).
+#### 🎙️ Podcast Split Shot & Deteksi 2 Pembicara
+- **Shot Transisi Otomatis**: Transisi otomatis antara layar penuh 9:16 (saat menyorot 1 pembicara) dan Split 2 Layar (saat kamera melebar memperlihatkan 2 orang pembicara).
+- **Backend Face & Speaker Clustering**: Pelacakan cerdas via endpoint `/api/deteksi-podcast` dan `/api/deteksi-facecam`.
+
+#### ⚡ Render Satuan & Download Header Rapi
+- **Tombol "Render Klip Ini"**: Kemampuan merender hanya satu klip terpilih tanpa harus merender semua klip dalam daftar.
+- **Direct Download Headers**: Penanganan header HTTP `Content-Disposition: attachment` pada endpoint berkas video untuk mencegah eror unduhan browser.
+
+#### 🔊 Integrasi Suara Alami (AI Motion)
+- Integrasi modul `suara-natural.py` berbasis Edge-TTS untuk menghasilkan sulih suara (*voiceover*) bahasa Indonesia alami dan ekspresif.
 """
 
 # 2. Cek apakah rilis sudah ada atau buat baru
@@ -108,16 +115,16 @@ except urllib.error.HTTPError as e:
 
 # 3. Cek asset apakah sudah sesuai dan unggah bila perlu
 files_to_publish = [
-    'hasil-installer/CalClip-v2.0-Windows-Setup.exe',
-    'hasil-installer/CalClip-v2.0-Windows-Setup.zip'
+    'hasil-installer/CalClip-v2.1-Windows-Setup.exe',
+    'hasil-installer/CalClip-v2.1-Windows-Setup.zip'
 ]
 
 # Pastikan file zip sudah ada
 import zipfile
-if not os.path.exists('hasil-installer/CalClip-v2.0-Windows-Setup.zip'):
+if not os.path.exists('hasil-installer/CalClip-v2.1-Windows-Setup.zip'):
     print('Membuat arsip zip dari installer...')
-    with zipfile.ZipFile('hasil-installer/CalClip-v2.0-Windows-Setup.zip', 'w', compression=zipfile.ZIP_STORED) as z:
-        z.write('hasil-installer/CalClip-v2.0-Windows-Setup.exe', arcname='CalClip-v2.0-Windows-Setup.exe')
+    with zipfile.ZipFile('hasil-installer/CalClip-v2.1-Windows-Setup.zip', 'w', compression=zipfile.ZIP_STORED) as z:
+        z.write('hasil-installer/CalClip-v2.1-Windows-Setup.exe', arcname='CalClip-v2.1-Windows-Setup.exe')
 
 for rel_fpath in files_to_publish:
     file_path = os.path.abspath(rel_fpath)
