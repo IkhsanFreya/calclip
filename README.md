@@ -26,27 +26,31 @@ Seluruh proses transkripsi, deteksi wajah, dan rendering video berjalan secara l
 
 ---
 
-## Pratinjau Antarmuka
+## Pratinjau Antarmuka (Dark Mode)
 
 <p align="center">
-  <img src="docs/tangkapan-layar/pratinjau-kolase.png" alt="Pratinjau Antarmuka CalClip.IN" width="920">
+  <img src="docs/tangkapan-layar/v21-pratinjau-kolase.png" alt="Pratinjau Antarmuka CalClip.IN v2.1.0" width="920">
 </p>
 
 <details>
 <summary><b>Klik di sini untuk melihat tangkapan layar per fitur secara terpisah</b></summary>
 <br>
 
-| 1. Studio Editor Klip 9:16 | 2. Modal Trim & Subtitle |
+| 1. Beranda — Dashboard Utama | 2. Studio Klip — Input & Analisis Video |
 | :---: | :---: |
-| <img src="docs/tangkapan-layar/01-studio-klip-preview.png" width="440" alt="Studio Editor"> | <img src="docs/tangkapan-layar/02-modal-trim-subtitle.png" width="440" alt="Modal Trim"> |
+| <img src="docs/tangkapan-layar/v21-beranda-darkmode.png" width="440" alt="Beranda Dashboard"> | <img src="docs/tangkapan-layar/v21-klip-input-darkmode.png" width="440" alt="Input Analisis Klip"> |
 
-| 3. Salin Caption & Tagar | 4. Deteksi Akselerasi GPU |
+| 3. Editor Klip — Timeline, Pratinjau & Daftar Klip | 4. Pustaka Proyek — Riwayat Video |
 | :---: | :---: |
-| <img src="docs/tangkapan-layar/03-salin-caption-hashtag.png" width="440" alt="Salin Caption"> | <img src="docs/tangkapan-layar/04-akselerasi-gpu-nvenc.png" width="440" alt="Akselerasi GPU"> |
+| <img src="docs/tangkapan-layar/v21-studio-editor-darkmode.png" width="440" alt="Studio Editor"> | <img src="docs/tangkapan-layar/v21-riwayat-darkmode.png" width="440" alt="Pustaka Riwayat"> |
+
+| 5. Layout Kamera — Mode Streamer & Facecam | 6. Teks — Word Inspector & Hook Editor |
+| :---: | :---: |
+| <img src="docs/tangkapan-layar/v21-layout-facecam-darkmode.png" width="440" alt="Layout Facecam"> | <img src="docs/tangkapan-layar/v21-subtitle-preset-darkmode.png" width="440" alt="Teks Word Inspector"> |
 
 <p align="center">
-  <b>5. Pengaturan Model AI Terintegrasi</b><br>
-  <img src="docs/tangkapan-layar/05-pengaturan-ai-update.png" width="700" alt="Pengaturan AI">
+  <b>7. Preset Animasi Subtitle</b><br>
+  <img src="docs/tangkapan-layar/v21-gaya-preset-darkmode.png" width="700" alt="Preset Subtitle">
 </p>
 
 </details>
@@ -62,25 +66,46 @@ Seluruh proses transkripsi, deteksi wajah, dan rendering video berjalan secara l
   - **Google Gemini:** Integrasi Google AI Studio (`gemini-2.5-flash`, `gemini-3.1-flash-lite`).
   - **Model Lokal & Eksternal:** Mendukung Ollama, OpenAI, Claude CLI, dan Groq.
 
-### 2. Preset Subtitle Kinetik
-- **Pilihan Tipografi Terstruktur:** Alex Hormozi (boks teks kontras tinggi), MrBeast (tipografi tegas dengan animasi sorot), Ali Abdaal (minimalis editorial), dan TikTok Neon.
-- **Penyaring Kata (Family Friendly):** Deteksi dan penyensoran otomatis kata-kata tidak pantas pada subtitle dan hook banner menjadi representasi asterisk (`***`).
+### 2. Subtitle Kinetik Dinamis (Word-by-Word)
+- **Sinkronisasi Per Kata:** Subtitle tampil kata per kata secara real-time menggunakan timestamp dari Whisper AI, memberikan efek "karaoke" yang menarik perhatian penonton.
+- **10+ Preset Animasi:** Sorot Kuning, Pop Kapital, Kotak Hitam, Neon Glow, Komik Pop, Karaoke, Minimal, Halus Elegan, Lime Box, Serif Elegan, Kertas Sobek, dan Merek CalClip.
+- **Word Inspector:** Klik kata individual untuk menyorot atau menambahkan emoji secara presisi.
+- **Penyaring Kata (Family Friendly):** Deteksi dan penyensoran otomatis kata-kata tidak pantas pada subtitle menjadi representasi asterisk (`***`).
 
-### 3. Timeline Mini Trim Presisi
+### 3. Smart Facecam Framing (Zoom Hingga 5.0x)
+- **YuNet ONNX Face Tracker:** Pelacakan posisi wajah subjek secara real-time pada setiap adegan video.
+- **Filter Kalman Linear 2D:** Meredam getaran kamera (camera jitter) hingga >95% sehingga transisi framing 9:16 tetap halus, tenang, dan stabil.
+- **Deadzone Hysteresis:** Mencegah goyangan pembingkaian saat subjek melakukan pergerakan kepala kecil.
+- **5 Mode Layout Kamera:**
+  - Podcast 1 Layar (Auto Pembicara)
+  - Split Podcast (2 Layar)
+  - Satu Video Biasa (Solo)
+  - Wajah Atas + Layar Gameplay Bawah
+  - Wajah di Pojok (PiP Game)
+- **Preset Sudut Cepat:** Kiri Bawah, Kanan Bawah, Kiri Atas, Kanan Atas, Tengah — satu klik langsung set posisi facecam.
+
+### 4. Timeline Mini Trim Presisi
 - Kontrol slider penyesuaian detik awal dan akhir video dengan penambahan/pengurangan cepat (-1s / +1s).
 - Kalkulasi durasi otomatis dan sinkronisasi pratinjau kanvas secara langsung.
 
-### 4. Akselerasi Perangkat Keras GPU
+### 5. Akselerasi Perangkat Keras GPU
 - **Dukungan Hardware Encoder:** NVIDIA NVENC, Intel QuickSync Video (QSV), dan AMD AMF untuk peningkatan performa ekspor video hingga 5x–8x lebih efisien.
 - **CPU Fallback Otomatis:** Deteksi cerdas yang mengalihkan proses ke encoder CPU (`libx264`) secara aman jika GPU dedicated tidak terpasang.
+- **Render Klip Satuan:** Render satu klip spesifik tanpa harus menunggu seluruh batch selesai.
 
-### 5. Generator Deskripsi dan Tagar
+### 6. Generator Motion AI (Video Animasi dari Topik)
+- **Naskah Otomatis:** Tulis satu topik ide, AI merangkai naskah per adegan lengkap dengan narasi.
+- **Suara Narator Natural:** Integrasi Edge-TTS dan Kokoro TTS untuk suara narator berkualitas tinggi.
+- **Render Video 30fps:** Menggunakan Remotion engine untuk menghasilkan video animasi siap posting.
+
+### 7. Generator Deskripsi dan Tagar
 - Ekstraksi judul, kutipan pokok, serta pembuatan kumpulan tagar relevan dalam satu klik untuk mempermudah distribusi konten ke platform media sosial.
 
-### 6. Keamanan dan Isolasi Data
+### 8. Keamanan dan Isolasi Data
 - **Loopback Isolation:** Layanan backend terikat eksklusif pada interface loopback (`127.0.0.1`), mencegah akses tidak sah melalui jaringan LAN/Wi-Fi.
 - **Proteksi Rebinding & CSRF:** Validasi ketat pada Host Header serta penolakan permintaan lintas domain.
 - **Penyimpanan Terisolasi:** Berkas proyek, konfigurasi, dan riwayat video disimpan di direktori pengguna (`%USERPROFILE%\CalClip`), memastikan data tetap utuh saat aplikasi diperbarui.
+- **100% Offline-First:** Tidak memerlukan koneksi internet untuk fungsi inti (transkripsi, deteksi wajah, rendering). Internet hanya diperlukan saat mengunduh video YouTube atau menggunakan model AI cloud (Gemini/Ollama).
 
 ---
 
@@ -88,8 +113,8 @@ Seluruh proses transkripsi, deteksi wajah, dan rendering video berjalan secara l
 
 ### Pemasangan Menggunakan Installer Mandiri
 1. Unduh berkas resmi pada halaman **[Releases](https://github.com/IkhsanFreya/calclip/releases/latest)**:
-   - **`CalClip-v2.0-Windows-Setup.exe`** (148.51 MB — Wizard Installer Otomatis)
-   - **`CalClip-v2.0-Windows-Setup.zip`** (148.51 MB — Arsip ZIP Resmi)
+   - **`CalClip-v2.1-Windows-Setup.exe`** (~310 MB — Wizard Installer Otomatis)
+   - **`CalClip-v2.1-Windows-Setup.zip`** (~310 MB — Arsip ZIP Resmi)
 2. Jalankan berkas installer (tidak membutuhkan hak akses Administrator / UAC).
 3. Ikuti instruksi pada wizard instalasi. Aplikasi akan otomatis terpasang dengan pintasan di Desktop dan Start Menu.
 
@@ -126,14 +151,34 @@ Antarmuka aplikasi dapat diakses melalui browser pada alamat:
 
 - **Frontend:** React 18, TypeScript, Tailwind CSS, Lucide Icons, Vite
 - **Backend & Servis:** Python 3 (ThreadingHTTPServer mandiri, port 8799)
-- **AI & Transkripsi:** faster-whisper (CTranslate2), Google GenAI SDK, OpenCV (YuNet Face Detection)
-- **Pemrosesan Video:** FFmpeg (Hardware NVENC/QSV/AMF & CPU libx264)
+- **AI & Transkripsi:** faster-whisper (CTranslate2 INT8), Google GenAI SDK, OpenCV (YuNet ONNX Face Detection), Filter Kalman Linear 2D
+- **Pemrosesan Video:** FFmpeg (Hardware NVENC/QSV/AMF & CPU libx264), yt-dlp
 - **Motion Engine:** Remotion, Edge-TTS, Kokoro TTS
 - **Distribusi & Packaging:** Inno Setup Compiler 6 (LZMA2 Ultra Compression), Native C# Launcher (`CalClip.exe`)
+
+---
+
+## Riwayat Versi
+
+### v2.1.0 — Dynamic Subtitles, Facecam Smart Framing & AI Motion Suite
+- Subtitle kinetik word-by-word dengan timestamp Whisper AI
+- Smart facecam framing dengan zoom hingga 5.0x dan Filter Kalman
+- 10+ preset animasi subtitle baru
+- Word Inspector untuk highlight dan emoji per kata
+- Render klip satuan (satu per satu)
+- Mode layout streamer lengkap (Solo, Podcast, Split, PiP)
+- Generator Motion AI dengan naskah dan suara narator otomatis
+
+### v2.0.0 — Production Release
+- Rilis produksi pertama dengan installer Windows mandiri
+- Deteksi momen otomatis (Lokal, Gemini, Ollama, OpenAI)
+- Transkripsi Whisper AI dengan prompt conditioning Bahasa Indonesia
+- Akselerasi GPU (NVENC, QSV, AMF) dengan CPU fallback
+- Keamanan loopback isolation dan proteksi CSRF
+- Preset gaya influencer (Alex Hormozi, MrBeast, Ali Abdaal, TikTok Neon)
 
 ---
 
 ## Lisensi
 
 Proyek ini dilisensikan di bawah **MIT License**. Hak cipta dan izin penggunaan terbuka, Terimakasih ENJOY
-.
