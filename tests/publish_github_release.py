@@ -37,6 +37,16 @@ Silakan unduh berkas aplikasi resmi pada daftar **Assets** di bawah:
 | **[`CalClip-v2.1-Windows-Setup.exe`](https://github.com/IkhsanFreya/calclip/releases/download/v2.1.0/CalClip-v2.1-Windows-Setup.exe)** | Installer Mandiri | **Rekomendasi Utama:** Wizard instalasi satu klik untuk Windows 10 & 11 (64-bit). |
 | **[`CalClip-v2.1-Windows-Setup.zip`](https://github.com/IkhsanFreya/calclip/releases/download/v2.1.0/CalClip-v2.1-Windows-Setup.zip)** | Arsip ZIP Installer | Untuk pengguna yang membutuhkan berkas installer dalam format `.zip`. |
 
+> [!TIP]
+> **PEMBERITAHUAN WINDOWS SMARTSCREEN (PENERBIT TIDAK DIKENAL):**  
+> Karena CalClip.IN merupakan aplikasi *open-source* independen yang tidak menyertakan sertifikat digital komersial berbayar (EV Code Signing dari Microsoft seharga ~$400/tahun), Windows Defender SmartScreen mungkin menampilkan dialog proteksi *"Windows protected your PC"* atau *"Windows melindungi PC Anda"*.  
+> 
+> **Langkah melanjutkan instalasi:**  
+> 1. Klik tautan **"More info"** / **"Info selengkapnya"**  
+> 2. Klik tombol **"Run anyway"** / **"Tetap jalankan"**  
+> 
+> Seluruh kode sumber CalClip.IN 100% terbuka (*open-source*), terbebas dari *malware* atau pelacak pihak ketiga, dan seluruh pemrosesan AI berjalan secara lokal di komputer Anda.
+
 > [!NOTE]
 > **PEMBERITAHUAN MENGENAI `Source code (zip)` & `Source code (tar.gz)` DI DAFTAR ASSETS:**
 > Tautan `Source code (zip)` dan `Source code (tar.gz)` pada bagian paling bawah daftar Assets adalah **fitur standar bawaan platform GitHub** yang dibuat otomatis dari repositori terbuka (*Open Source*) untuk kebutuhan pengembang (*developer*) dan pengujian akademik skripsi.

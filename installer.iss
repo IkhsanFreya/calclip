@@ -35,6 +35,15 @@ SetupIconFile=dist\ikon.ico
 UninstallDisplayIcon={app}\dist\ikon.ico
 ChangesAssociations=yes
 
+; Metadata Informasi Versi & Penerbit Resmi (Mengurangi peringatan Windows Defender SmartScreen)
+VersionInfoVersion=2.1.0.0
+VersionInfoCompany=CalClip Open Source
+VersionInfoDescription=CalClip.IN Setup Installer
+VersionInfoTextVersion=2.1.0
+VersionInfoCopyright=Copyright (C) 2026 CalClip Open Source
+VersionInfoProductName=CalClip.IN
+VersionInfoProductVersion=2.1.0.0
+
 ; Kompresi Maksimal LZMA2 untuk Ukuran ~130-140 MB Mandiri Lengkap
 Compression=lzma2/normal
 SolidCompression=yes

@@ -118,6 +118,17 @@ Seluruh proses transkripsi, deteksi wajah, dan rendering video berjalan secara l
 2. Jalankan berkas installer (tidak membutuhkan hak akses Administrator / UAC).
 3. Ikuti instruksi pada wizard instalasi. Aplikasi akan otomatis terpasang dengan pintasan di Desktop dan Start Menu.
 
+> [!TIP]
+> **Pemberitahuan Windows SmartScreen (Penerbit Tidak Dikenal):**  
+> Karena CalClip.IN merupakan aplikasi *open-source* independen yang tidak menyertakan sertifikat digital EV berbayar dari Microsoft ($400/tahun), Windows Defender SmartScreen mungkin menampilkan dialog proteksi:  
+> *"Windows protected your PC"* atau *"Windows melindungi PC Anda"*.  
+>
+> **Langkah melanjutkan:**  
+> 1. Klik tautan **"More info"** / **"Info selengkapnya"**  
+> 2. Klik tombol **"Run anyway"** / **"Tetap jalankan"**  
+>
+> Seluruh kode sumber CalClip.IN 100% terbuka (*open source*), bebas dari *malware* maupun pelacak pihak ketiga, dan seluruh pemrosesan AI berjalan secara lokal di komputer Anda.
+
 ### Eksekusi dari Kode Sumber (Development Mode)
 Pastikan sistem telah terpasang **Node.js (v18+)** dan **Python (3.10+)**:
 

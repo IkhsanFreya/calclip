@@ -1,6 +1,20 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Reflection;
+using System.Runtime.InteropServices;
+
+[assembly: AssemblyTitle("CalClip.IN")]
+[assembly: AssemblyDescription("CalClip.IN Desktop Video Clipper & Motion AI Launcher")]
+[assembly: AssemblyConfiguration("")]
+[assembly: AssemblyCompany("CalClip Open Source")]
+[assembly: AssemblyProduct("CalClip.IN")]
+[assembly: AssemblyCopyright("Copyright © 2026 CalClip Open Source")]
+[assembly: AssemblyTrademark("CalClip.IN")]
+[assembly: AssemblyCulture("")]
+[assembly: ComVisible(false)]
+[assembly: AssemblyVersion("2.1.0.0")]
+[assembly: AssemblyFileVersion("2.1.0.0")]
 
 namespace CalClipLauncher
 {
