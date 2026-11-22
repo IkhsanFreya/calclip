@@ -1,0 +1,17 @@
+{
+  "python.analysis.extraPaths": [
+    "${workspaceFolder}/alat",
+    "${workspaceFolder}/alat/klip",
+    "${workspaceFolder}/alat/studio",
+    "${workspaceFolder}/alat/suara",
+    "${workspaceFolder}/alat/motion"
+  ],
+  "python.autoComplete.extraPaths": [
+    "${workspaceFolder}/alat",
+    "${workspaceFolder}/alat/klip",
+    "${workspaceFolder}/alat/studio",
+    "${workspaceFolder}/alat/suara",
+    "${workspaceFolder}/alat/motion"
+  ],
+  "typescript.tsdk": "node_modules/typescript/lib"
+}

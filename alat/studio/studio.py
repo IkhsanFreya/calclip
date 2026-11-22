@@ -137,11 +137,12 @@ class Kerja:
                                              stderr=subprocess.STDOUT, text=True, bufsize=1,
                                              encoding="utf-8", errors="replace",
                                              creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
-                for baris in self.proc.stdout:
-                    baris = baris.rstrip()
-                    if baris and not re.search(r"objc\[|AVFAudioReceiver|Warning|warn\(|^\s*$", baris):
-                        self.log.append(baris)
-                        self.log[:] = self.log[-400:]
+                if self.proc.stdout:
+                    for baris in self.proc.stdout:
+                        baris = baris.rstrip()
+                        if baris and not re.search(r"objc\[|AVFAudioReceiver|Warning|warn\(|^\s*$", baris):
+                            self.log.append(baris)
+                            self.log[:] = self.log[-400:]
                 if self.proc.wait() != 0:
                     self.status = "gagal" if self.status != "batal" else "batal"
                     return
@@ -484,7 +485,7 @@ def mulai_klip(d: dict) -> dict:
     return {"proyek": folder.name}
 
 
-def _folder_klip(nama: str) -> Path:
+def _folder_klip(nama: str | None = None) -> Path:
     f = DATA / "klip" / re.sub(r"[^\w-]", "", nama or "")
     if not (f / "transkrip.json").exists():
         raise ValueError("Proyek tidak ditemukan. Analisis videonya dulu.")
@@ -743,7 +744,8 @@ def muat_proyek(jenis: str, nama: str) -> dict:
         out["gambar"] = f"/berkas/{jenis}/{nama}/gambar.jpg"
     if (f / "gaya.json").exists():
         out["gaya"] = json.loads((f / "gaya.json").read_text(encoding="utf-8-sig"))
-    pr = (out.get("info") or {}).get("pratinjau")
+    info_obj = out.get("info")
+    pr = info_obj.get("pratinjau") if isinstance(info_obj, dict) else None
     if pr and (f / pr).exists():
         stem = Path(pr).stem if pr.endswith(".mp4") else pr
         out["sumber"] = f"/stream/{jenis}/{nama}/{stem}"
