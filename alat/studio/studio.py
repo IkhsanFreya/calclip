@@ -1188,55 +1188,85 @@ def main():
         except KeyboardInterrupt:
             return
     # Jendela aplikasi native (WebKit di macOS, WebView2 di Windows). Tutup jendela = mesin berhenti.
+    jendela_terbuka = False
     try:
         import webview
-    except Exception as e:  # noqa: BLE001
-        print(f"Jendela native tidak tersedia ({e}); membuka browser.")
-        webbrowser.open(url)
-        while True:
-            time.sleep(3600)
 
-    class Jembatan:
-        def unduh(self, nama: str, isi: str) -> str:
-            tujuan = Path.home() / "Downloads" / nama
-            tujuan.write_text(isi, encoding="utf-8")
-            return str(tujuan)
+        class Jembatan:
+            def unduh(self, nama: str, isi: str) -> str:
+                tujuan = Path.home() / "Downloads" / nama
+                tujuan.write_text(isi, encoding="utf-8")
+                return str(tujuan)
 
-    if sys.platform == "darwin":
-        # Nama & ikon di menu bar/Dock: "CalClip.IN", bukan "python"
-        try:
-            from AppKit import NSApplication, NSImage
-            from Foundation import NSBundle
-            info = NSBundle.mainBundle().localizedInfoDictionary() or NSBundle.mainBundle().infoDictionary()
-            info["CFBundleName"] = "CalClip.IN"
-        except Exception:  # noqa: BLE001
-            pass
+        if sys.platform == "darwin":
+            try:
+                from AppKit import NSApplication, NSImage
+                from Foundation import NSBundle
+                info = NSBundle.mainBundle().localizedInfoDictionary() or NSBundle.mainBundle().infoDictionary()
+                info["CFBundleName"] = "CalClip.IN"
+            except Exception:  # noqa: BLE001
+                pass
 
-    def setelah_mulai():
-        # ikon Dock dipasang setelah aplikasi Cocoa berjalan (kalau terlalu awal, ditimpa ikon python)
-        if sys.platform != "darwin":
-            return
-        try:
-            from AppKit import NSApplication, NSImage
-            from PyObjCTools import AppHelper
-            gambar = NSImage.alloc().initWithContentsOfFile_(str(AKAR / "aset" / "ikon.png"))
-            AppHelper.callAfter(lambda: NSApplication.sharedApplication().setApplicationIconImage_(gambar))
-        except Exception:  # noqa: BLE001
-            pass
+        def setelah_mulai():
+            if sys.platform != "darwin":
+                return
+            try:
+                from AppKit import NSApplication, NSImage
+                from PyObjCTools import AppHelper
+                gambar = NSImage.alloc().initWithContentsOfFile_(str(AKAR / "aset" / "ikon.png"))
+                AppHelper.callAfter(lambda: NSApplication.sharedApplication().setApplicationIconImage_(gambar))
+            except Exception:  # noqa: BLE001
+                pass
 
-    webview.settings["ALLOW_DOWNLOADS"] = True
-    webview.create_window("CalClip.IN", url, width=1360, height=880, min_size=(900, 640),
-                          background_color="#07090F", js_api=Jembatan())
-    ikon_file = DIST / "ikon.ico"
-    if not ikon_file.exists():
-        ikon_file = AKAR / "aset" / "ikon.ico"
-    try:
+        webview.settings["ALLOW_DOWNLOADS"] = True
+        webview.create_window("CalClip.IN", url, width=1360, height=880, min_size=(900, 640),
+                              background_color="#07090F", js_api=Jembatan())
+        ikon_file = DIST / "ikon.ico"
+        if not ikon_file.exists():
+            ikon_file = AKAR / "aset" / "ikon.ico"
         webview.start(setelah_mulai, icon=str(ikon_file) if ikon_file.exists() else None)
-    except Exception as e:
-        (DATA / "crash.log").write_text(f"WebView error: {e}\n", encoding="utf-8")
-    finally:
-        KERJA.batal()
-        os._exit(0)
+        jendela_terbuka = True
+    except Exception as e:  # noqa: BLE001
+        (DATA / "crash.log").write_text(f"WebView error ({e}); beralih ke Mode Aplikasi Desktop.\n", encoding="utf-8")
+
+    # Jika PyWebView belum tersedia / gagal, buka jendela aplikasi mandiri (Edge / Chrome App Mode)
+    # Mode ini 100% tanpa URL bar, tanpa tab browser, dan berdiri sebagai aplikasi desktop mandiri.
+    if not jendela_terbuka and os.name == "nt":
+        calon_browser = [
+            os.path.expandvars(r"%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe"),
+            os.path.expandvars(r"%ProgramFiles%\Microsoft\Edge\Application\msedge.exe"),
+            os.path.expandvars(r"%ProgramFiles%\Google\Chrome\Application\chrome.exe"),
+            os.path.expandvars(r"%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe"),
+            os.path.expandvars(r"%LocalAppData%\Google\Chrome\Application\chrome.exe"),
+        ]
+        user_data = str(DATA / ".browser_app")
+        for exe in calon_browser:
+            if os.path.exists(exe):
+                try:
+                    args = [
+                        exe,
+                        f"--app={url}",
+                        f"--user-data-dir={user_data}",
+                        "--window-size=1360,880",
+                    ]
+                    proc = subprocess.Popen(args)
+                    jendela_terbuka = True
+                    proc.wait()
+                    break
+                except Exception:
+                    pass
+
+    # Fallback terakhir jika semua mode jendela tidak ditemukan
+    if not jendela_terbuka:
+        webbrowser.open(url)
+        try:
+            while True:
+                time.sleep(3600)
+        except KeyboardInterrupt:
+            pass
+
+    KERJA.batal()
+    os._exit(0)
 
 
 if __name__ == "__main__":
