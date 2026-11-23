@@ -2,7 +2,6 @@ import urllib.request
 import json
 import subprocess
 
-# Get GitHub token from git credentials
 cmd = 'git credential fill'
 p = subprocess.Popen(cmd, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 out, _ = p.communicate('protocol=https\nhost=github.com\n')
@@ -14,7 +13,7 @@ for line in out.splitlines():
 if not token:
     raise ValueError("Token GitHub tidak ditemukan dari git credential!")
 
-# 1. Update repo metadata
+# 1. Pastikan repo description bersih dari unsur akademik/skripsi
 repo_data = {
     'description': 'CalClip.IN — Desktop Video Auto-Clipper 9:16 (Faster-Whisper INT8, YuNet ONNX & Filter Kalman 2D) & Motion AI Suite',
     'homepage': 'https://github.com/IkhsanFreya/calclip/releases/tag/v2.1.0'
@@ -35,7 +34,7 @@ with urllib.request.urlopen(req) as resp:
     print("Repo Description:", res.get('description'))
     print("Repo Homepage:", res.get('homepage'))
 
-# 2. Update release body
+# 2. Update release body TANPA hal akademik/skripsi sama sekali
 release_body = """## CalClip.IN v2.1.0 — Production Release (Windows 64-bit)
 
 CalClip.IN adalah aplikasi desktop pemrosesan video otomatis untuk mengonversi video horizontal panjang menjadi klip vertikal rasio 9:16 (TikTok, Reels, Shorts) serta generator Motion AI terintegrasi. Berjalan secara mandiri di komputer lokal tanpa ketergantungan cloud berbayar.
@@ -63,7 +62,7 @@ Silakan unduh berkas aplikasi resmi pada daftar **Assets** di bawah:
 
 > [!NOTE]
 > **PEMBERITAHUAN MENGENAI `Source code (zip)` & `Source code (tar.gz)` DI DAFTAR ASSETS:**  
-> Tautan `Source code (zip)` dan `Source code (tar.gz)` pada bagian paling bawah daftar Assets adalah **fitur standar otomatis bawaan platform GitHub** dari repositori terbuka (*Open Source*) untuk kebutuhan pengembang (*developer*) dan pengujian akademik skripsi. Pengguna umum/konten kreator **TIDAK PERLU** mengunduh berkas tersebut. Gunakan file installer `.exe` di atas.
+> Tautan `Source code (zip)` dan `Source code (tar.gz)` pada bagian paling bawah daftar Assets adalah **fitur standar otomatis bawaan platform GitHub** dari repositori terbuka (*Open Source*) untuk kebutuhan pengembang (*developer*). Pengguna umum/konten kreator **TIDAK PERLU** mengunduh berkas tersebut. Gunakan file installer `.exe` di atas.
 
 ---
 
@@ -98,14 +97,6 @@ Silakan unduh berkas aplikasi resmi pada daftar **Assets** di bawah:
 - **Tombol "Render Klip Ini":** Memungkinkan pengguna mengekspor klip terpilih secara individual tanpa harus merender seluruh daftar klip.
 - **Direct Download Headers:** Penanganan header HTTP `Content-Disposition: attachment` pada server lokal untuk menjamin pengunduhan video di browser berjalan mulus.
 - **Kemasan Mandiri Teruji:** Paket instalasi ~330 MB yang sudah mengemas seluruh runtime Python 3.12, binary FFmpeg 87MB lengkap dengan encoder hardware (NVENC/QSV/AMF), model Faster-Whisper terkuantisasi INT8, dan yt-dlp.
-
----
-
-### 🎓 Catatan Riset & Penyelarasan Skripsi
-
-Rilis CalClip.IN v2.1.0 ini merupakan implementasi teknis dan instrumen uji eksperimental untuk usulan skripsi Program Studi Informatika, Fakultas Teknik, Universitas Siliwangi dengan judul:
-
-> **"Implementasi Faster-Whisper Terkuantisasi INT8 dan Dynamic Auto-Reframing Berbasis YuNet serta Filter Kalman Linear 2D pada Aplikasi Video Clipper Otomatis CalClip.IN"**
 """
 
 req_rel = urllib.request.Request(

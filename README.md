@@ -218,18 +218,6 @@ Antarmuka aplikasi dapat diakses melalui browser pada alamat:
 
 ---
 
-## 🎓 Relevansi Akademik & Riset Skripsi
-
-Aplikasi CalClip.IN dikembangkan sebagai instrumen penelitian dan implementasi teknis pada Program Studi Informatika, Fakultas Teknik, Universitas Siliwangi dengan judul usulan skripsi:
-
-> **"Implementasi Faster-Whisper Terkuantisasi INT8 dan Dynamic Auto-Reframing Berbasis YuNet serta Filter Kalman Linear 2D pada Aplikasi Video Clipper Otomatis CalClip.IN"**
-
-Fokus penelitian mencakup:
-1. **Efisiensi Transkripsi:** Optimalisasi inferensi Automatic Speech Recognition (ASR) menggunakan arsitektur Faster-Whisper terkuantisasi INT8 pada CPU dan GPU lokal.
-2. **Stabilitas Pembingkaian Kamera:** Penerapan model deteksi wajah YuNet ONNX yang dipadukan dengan Filter Kalman Linear 2D dan Dynamic Deadzone Hysteresis untuk meredam jittering pada konversi video horizontal ke vertikal 9:16.
-
----
-
 ## Lisensi
 
 Proyek ini dilisensikan di bawah **MIT License**. Hak cipta dan izin penggunaan terbuka, Terimakasih ENJOY
