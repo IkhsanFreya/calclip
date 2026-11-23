@@ -28,10 +28,10 @@ namespace CalClipLauncher
             string studioScript = Path.Combine(appDir, "alat", "studio", "studio.py");
 
             // 1. Prioritas runtime Python mandiri terbundel
-            string pythonExe = Path.Combine(appDir, "python", "pythonw.exe");
+            string pythonExe = Path.Combine(appDir, "python", "python.exe");
             if (!File.Exists(pythonExe))
             {
-                pythonExe = Path.Combine(appDir, "python", "python.exe");
+                pythonExe = Path.Combine(appDir, "python", "pythonw.exe");
             }
 
             string uvExe = Path.Combine(appDir, "bin", "uv.exe");
@@ -72,12 +72,12 @@ namespace CalClipLauncher
                 string localApp = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
                 string[] candidates = new string[]
                 {
-                    Path.Combine(localApp, "Programs", "Studio Maliki", "python", "pythonw.exe"),
                     Path.Combine(localApp, "Programs", "Studio Maliki", "python", "python.exe"),
-                    Path.Combine(localApp, "Programs", "Python", "Python312", "pythonw.exe"),
                     Path.Combine(localApp, "Programs", "Python", "Python312", "python.exe"),
-                    Path.Combine(localApp, "Programs", "Python", "Python313", "pythonw.exe"),
-                    Path.Combine(localApp, "Programs", "Python", "Python311", "pythonw.exe")
+                    Path.Combine(localApp, "Programs", "Studio Maliki", "python", "pythonw.exe"),
+                    Path.Combine(localApp, "Programs", "Python", "Python312", "pythonw.exe"),
+                    Path.Combine(localApp, "Programs", "Python", "Python313", "python.exe"),
+                    Path.Combine(localApp, "Programs", "Python", "Python311", "python.exe")
                 };
 
                 foreach (string c in candidates)
@@ -91,7 +91,7 @@ namespace CalClipLauncher
 
                 if (!File.Exists(pythonExe))
                 {
-                    pythonExe = "pythonw.exe";
+                    pythonExe = "python.exe";
                 }
 
                 psi.FileName = pythonExe;
