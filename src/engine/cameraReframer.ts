@@ -45,14 +45,18 @@ export class LinearKalmanFilter2D {
     return [this.state[0], this.state[1]];
   }
 
-  public update(measuredX: number, measuredY: number): [number, number] {
+  public update(measuredX: number, measuredY: number, confidence: number = 1.0): [number, number] {
     // Measurement residual
     const y0 = measuredX - this.state[0];
     const y1 = measuredY - this.state[1];
 
+    // Adaptive measurement noise: higher confidence -> lower measurement noise R
+    const conf = Math.max(0.1, Math.min(1.0, confidence));
+    const rAdapt = this.rNoise / conf;
+
     // Kalman gain K = P * H^T * (H * P * H^T + R)^-1
-    const s0 = this.P[0] + this.rNoise;
-    const s1 = this.P[5] + this.rNoise;
+    const s0 = this.P[0] + rAdapt;
+    const s1 = this.P[5] + rAdapt;
 
     const k0 = this.P[0] / s0;
     const k1 = this.P[5] / s1;
@@ -203,15 +207,23 @@ export class CameraReframer {
     }
 
     // 4. Dead-Zone Hysteresis & Velocity Clamping
-    const [currX, currY] = this.kalman.getState().slice(0, 2);
+    const [currX, currY, currVx, currVy] = this.kalman.getState();
+    const speed = Math.sqrt(currVx * currVx + currVy * currVy);
+    const dynamicDeadZone = speed < 0.05 ? this.deadZoneRadius * 1.4 : this.deadZoneRadius * 0.48; // Rigid anti-jitter when still, responsive when moving
+
     const distFromCenter = Math.sqrt(Math.pow(rawTargetX - currX, 2) + Math.pow(rawTargetY - currY, 2));
 
-    // If within dead-zone, soften target pull
+    // Jump-cut or speaker change snap threshold (avoids slow rubber-banding across scene shifts)
+    if (distFromCenter >= 0.16) {
+      this.kalman.setState(rawTargetX, rawTargetY);
+    }
+
+    // If within dynamic dead-zone, soften target pull
     let targetX = rawTargetX;
     let targetY = rawTargetY;
-    if (distFromCenter < this.deadZoneRadius) {
-      targetX = currX + (rawTargetX - currX) * 0.2;
-      targetY = currY + (rawTargetY - currY) * 0.2;
+    if (distFromCenter < dynamicDeadZone) {
+      targetX = currX + (rawTargetX - currX) * 0.15;
+      targetY = currY + (rawTargetY - currY) * 0.15;
     }
 
     // 5. Kalman Filtering or Raw Unsmoothed
@@ -220,7 +232,8 @@ export class CameraReframer {
 
     if (isKalmanEnabled) {
       this.kalman.predict(dt);
-      const [kx, ky] = this.kalman.update(targetX, targetY);
+      const targetConfidence = activeSpeaker ? activeSpeaker.confidence : (activeObject ? activeObject.confidence : 0.8);
+      const [kx, ky] = this.kalman.update(targetX, targetY, targetConfidence);
 
       // Cubic-bezier L1-norm velocity clamping
       const maxDelta = this.maxVelocity * dt;

@@ -1402,54 +1402,99 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
         return sensorKataKasar ? sensorTeksCanvas(raw) : raw;
       };
 
-      const curT = hasResults ? currentVideoTime : currentTime;
       const chunkSize = P.per || 3;
+      const isPlaying = isVideoPlaying && videoElemRef.current && !videoElemRef.current.paused;
+      const curT = videoElemRef.current ? videoElemRef.current.currentTime : (hasResults ? currentVideoTime : currentTime);
 
       let contoh: string[] = ['ini', 'contoh', 'klip'];
       let aktifI = 1;
+      let wordPhase = 0.5; // 0.0 to 1.0 progress through active word
 
-      // 1. Check real transcript from backend first
-      let foundInTranscript = false;
-      if (projectTranscript && projectTranscript.length > 0) {
-        const seg = projectTranscript.find((s) => curT >= s.mulai - 0.15 && curT <= s.selesai + 0.25);
-        if (seg && seg.kata && seg.kata.length > 0) {
-          let wIdx = seg.kata.findIndex((k) => curT >= k.mulai && curT <= k.selesai);
-          if (wIdx === -1) {
-            wIdx = seg.kata.findIndex((k) => curT < k.mulai);
-            if (wIdx === -1) wIdx = seg.kata.length - 1;
-            else wIdx = Math.max(0, wIdx - 1);
+      // Kumpulkan bank kata dari edit input, kutipan klip aktif, atau transkrip
+      let rawWordPool: string[] = [];
+      if (editQuoteInput && editQuoteInput.trim().length > 0) {
+        rawWordPool = editQuoteInput.trim().replace(/[“”,.?!]/g, '').split(/\s+/).filter(Boolean);
+      } else if (activeClip?.quote && activeClip.quote.trim().length > 0) {
+        rawWordPool = activeClip.quote.trim().replace(/[“”,.?!]/g, '').split(/\s+/).filter(Boolean);
+      } else if (projectTranscript && projectTranscript.length > 0) {
+        const clipStart = editStartTime || activeClip?.startTime || 0;
+        const clipEnd = editEndTime || activeClip?.endTime || 30;
+        const clipSegs = projectTranscript.filter(s => s.mulai >= clipStart - 0.5 && s.selesai <= clipEnd + 0.5);
+        const segsToScan = clipSegs.length > 0 ? clipSegs : projectTranscript;
+        for (const s of segsToScan) {
+          if (s.kata && s.kata.length > 0) {
+            for (const k of s.kata) rawWordPool.push(k.teks);
+          } else if (s.teks) {
+            rawWordPool.push(...s.teks.replace(/[“”,.?!]/g, '').split(/\s+/).filter(Boolean));
           }
-          const chunkStart = Math.floor(wIdx / chunkSize) * chunkSize;
-          const chunk = seg.kata.slice(chunkStart, chunkStart + chunkSize);
-          contoh = chunk.map((c) => c.teks);
-          aktifI = wIdx - chunkStart;
-          foundInTranscript = true;
-        } else if (seg && seg.teks) {
-          const sWords = seg.teks.split(/\s+/).filter(Boolean);
-          const segDur = Math.max(0.5, seg.selesai - seg.mulai);
-          const relT = Math.max(0, Math.min(segDur, curT - seg.mulai));
-          const wIdx = Math.min(sWords.length - 1, Math.floor((relT / segDur) * sWords.length));
-          const chunkStart = Math.floor(wIdx / chunkSize) * chunkSize;
-          contoh = sWords.slice(chunkStart, chunkStart + chunkSize);
-          aktifI = wIdx - chunkStart;
-          foundInTranscript = true;
         }
       }
+      if (rawWordPool.length === 0) {
+        rawWordPool = ['KONTEN', 'VIRAL', 'OTOMATIS', 'DENGAN', 'AI', 'CALCLIP'];
+      }
 
-      // 2. Fallback: dynamic progress across activeClip.quote
-      if (!foundInTranscript && activeClip?.quote) {
-        const rawWords = activeClip.quote.replace(/[“”,.?!]/g, '').split(/\s+/).filter(Boolean);
-        if (rawWords.length > 0) {
-          const clipStart = editStartTime || activeClip.startTime || 0;
-          const clipEnd = editEndTime || activeClip.endTime || (clipStart + 30);
-          const clipDur = Math.max(1, clipEnd - clipStart);
-          const relT = Math.max(0, Math.min(clipDur, curT - clipStart));
-          const progress = relT / clipDur;
-          const wIdx = Math.min(rawWords.length - 1, Math.floor(progress * rawWords.length));
-          const chunkStart = Math.floor(wIdx / chunkSize) * chunkSize;
-          contoh = rawWords.slice(chunkStart, chunkStart + chunkSize);
-          aktifI = wIdx - chunkStart;
+      if (isPlaying) {
+        // Mode A: Video sedang berputar -> Sinkronisasi audio transcript
+        let foundInTranscript = false;
+        if (projectTranscript && projectTranscript.length > 0) {
+          const seg = projectTranscript.find((s) => curT >= s.mulai - 0.15 && curT <= s.selesai + 0.25);
+          if (seg && seg.kata && seg.kata.length > 0) {
+            let wIdx = seg.kata.findIndex((k) => curT >= k.mulai && curT <= k.selesai);
+            if (wIdx === -1) {
+              wIdx = seg.kata.findIndex((k) => curT < k.mulai);
+              if (wIdx === -1) wIdx = seg.kata.length - 1;
+              else wIdx = Math.max(0, wIdx - 1);
+            }
+            const chunkStart = Math.floor(wIdx / chunkSize) * chunkSize;
+            const chunk = seg.kata.slice(chunkStart, chunkStart + chunkSize);
+            contoh = chunk.map((c) => c.teks);
+            aktifI = wIdx - chunkStart;
+            const kw = seg.kata[wIdx];
+            if (kw) {
+              const kwDur = Math.max(0.1, kw.selesai - kw.mulai);
+              wordPhase = Math.max(0, Math.min(1, (curT - kw.mulai) / kwDur));
+            }
+            foundInTranscript = true;
+          } else if (seg && seg.teks) {
+            const sWords = seg.teks.split(/\s+/).filter(Boolean);
+            const segDur = Math.max(0.5, seg.selesai - seg.mulai);
+            const relT = Math.max(0, Math.min(segDur, curT - seg.mulai));
+            const wIdx = Math.min(sWords.length - 1, Math.floor((relT / segDur) * sWords.length));
+            const chunkStart = Math.floor(wIdx / chunkSize) * chunkSize;
+            contoh = sWords.slice(chunkStart, chunkStart + chunkSize);
+            aktifI = wIdx - chunkStart;
+            wordPhase = (relT / (segDur / Math.max(1, sWords.length))) % 1.0;
+            foundInTranscript = true;
+          }
         }
+
+        if (!foundInTranscript && activeClip?.quote) {
+          const rawWords = activeClip.quote.replace(/[“”,.?!]/g, '').split(/\s+/).filter(Boolean);
+          if (rawWords.length > 0) {
+            const clipStart = editStartTime || activeClip.startTime || 0;
+            const clipEnd = editEndTime || activeClip.endTime || (clipStart + 30);
+            const clipDur = Math.max(1, clipEnd - clipStart);
+            const relT = Math.max(0, Math.min(clipDur, curT - clipStart));
+            const progress = relT / clipDur;
+            const wIdx = Math.min(rawWords.length - 1, Math.floor(progress * rawWords.length));
+            const chunkStart = Math.floor(wIdx / chunkSize) * chunkSize;
+            contoh = rawWords.slice(chunkStart, chunkStart + chunkSize);
+            aktifI = wIdx - chunkStart;
+            wordPhase = (progress * rawWords.length) % 1.0;
+          }
+        }
+      } else {
+        // Mode B: Video Jeda / Sedang Edit Gaya -> ANIMASI KINETIK AKTIF TIDAK FREEZE!
+        // Berjalan mulus 60 FPS menggunakan waktu nyata (wall-clock time)
+        const wps = 2.4; // 2.4 kata per detik (ritme bicara normal ~144 WPM)
+        const simTime = (performance.now() / 1000) * wps;
+        const totalWords = rawWordPool.length;
+        const globalWIdx = Math.floor(simTime) % totalWords;
+        const chunkStart = Math.floor(globalWIdx / chunkSize) * chunkSize;
+        const chunkEnd = Math.min(totalWords, chunkStart + chunkSize);
+        contoh = rawWordPool.slice(chunkStart, chunkEnd);
+        aktifI = globalWIdx - chunkStart;
+        wordPhase = simTime % 1.0;
       }
 
       const kata = contoh.map(hurufFn);
@@ -1457,7 +1502,7 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
       const fnt = (i: number) =>
         `${i === aktifI && P.mode === 'tebal' ? 'bold ' : tebal}${
           uk *
-          (i === aktifI && ['warna', 'pop', 'komik'].includes(P.mode) ? 1.1 : 1)
+          (i === aktifI && ['warna', 'pop', 'komik'].includes(P.mode) ? 1.08 : 1)
         }px "${i === aktifI ? fontAktif : selectedFont}"`;
 
       const lebar = kata.map((x, i) => {
@@ -1483,47 +1528,106 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
         ctx.font = fnt(i);
         const cleanWord = t.toLowerCase().replace(/[^a-z0-9]/g, '');
         const customStyle = customWordStyles[cleanWord];
+        const isAktif = (i === aktifI);
 
         // Multi-color sentiment or custom color
         let warna = '#fff';
         const baseColor = customStyle?.color || getSentimentColor(t, P.warna || highlightColor);
 
-        if (P.mode === 'warna' && i === aktifI) warna = baseColor;
-        if ((P.mode === 'pop' || P.mode === 'komik') && (i === kunciI || i === aktifI))
+        // Dynamic scale & spring bounce per preset
+        let scaleMult = 1.0;
+        let bounceY = 0;
+        let popRotate = 0;
+
+        if (isAktif) {
+          if (P.mode === 'pop' || activePreset === 'pop') {
+            const spring = Math.sin(Math.min(1, wordPhase * 3.2) * Math.PI);
+            scaleMult = 1.10 + 0.12 * spring;
+            bounceY = -8 * S * spring;
+          } else if (activePreset === 'neon' || P.judul === 'neon') {
+            const spring = Math.sin(Math.min(1, wordPhase * 3.0) * Math.PI);
+            scaleMult = 1.08 + 0.08 * spring;
+            bounceY = -5 * S * spring;
+          } else if (P.mode === 'komik' || activePreset === 'komik') {
+            const spring = Math.sin(Math.min(1, wordPhase * 3.0) * Math.PI);
+            scaleMult = 1.08 + 0.10 * spring;
+            bounceY = -6 * S * spring;
+            popRotate = (i % 2 === 0 ? -2 : 2) * (Math.PI / 180) * spring;
+          } else if (['warna', 'sorot', 'kotak', 'lime', 'terbaca'].includes(P.mode) || ['sorot', 'lime', 'terbaca'].includes(activePreset)) {
+            const pulse = Math.sin(wordPhase * Math.PI);
+            scaleMult = 1.06 + 0.05 * pulse;
+            bounceY = -3.5 * S * pulse;
+          } else {
+            scaleMult = 1.04;
+          }
+        }
+
+        if (P.mode === 'warna' && isAktif) warna = baseColor;
+        if ((P.mode === 'pop' || P.mode === 'komik') && (i === kunciI || isAktif))
           warna = baseColor;
-        if (P.mode === 'terbaca') warna = i === aktifI ? '#fff' : baseColor;
-        if (P.mode === 'karaoke') warna = i <= aktifI ? baseColor : '#fff';
-        if (P.mode === 'kotak' && (i === aktifI || i === kunciI)) {
+        if (P.mode === 'terbaca') warna = isAktif ? '#fff' : baseColor;
+        if (P.mode === 'karaoke' || activePreset === 'karaoke') {
+          if (i < aktifI) warna = baseColor;
+          else if (isAktif) warna = baseColor;
+          else warna = 'rgba(255, 255, 255, 0.65)';
+        }
+
+        // Pill / Box background highlighting
+        if ((P.mode === 'kotak' || activePreset === 'lime' || activePreset === 'terbaca') && (isAktif || i === kunciI)) {
           const lw = ctx.measureText(t).width;
+          const padX = 14 * S * scaleMult;
+          ctx.save();
           ctx.fillStyle = baseColor;
+          ctx.shadowColor = baseColor;
+          ctx.shadowBlur = 8 * S;
           ctx.beginPath();
-          ctx.roundRect(x - 10 * S, y - uk * 0.95, lw + 20 * S, uk * 1.25, 10 * S);
+          ctx.roundRect(x - padX / 2, y - uk * 0.95 + bounceY, lw + padX, uk * 1.25 * scaleMult, 8 * S);
           ctx.fill();
+          ctx.restore();
           warna = '#111';
         }
+
+        // Neon Glow pulsing effect
+        if (activePreset === 'neon' || P.judul === 'neon') {
+          const pulse = 10 + 6 * Math.sin(performance.now() / 160);
+          ctx.shadowColor = baseColor || '#ff4fa3';
+          ctx.shadowBlur = (isAktif ? pulse * 1.8 : pulse * 0.8) * S;
+          ctx.shadowOffsetY = 0;
+        }
+
+        ctx.save();
+        if (isAktif && (scaleMult !== 1.0 || bounceY !== 0 || popRotate !== 0)) {
+          const wordMidX = x + lebar[i] / 2;
+          const wordMidY = y - uk * 0.35 + bounceY;
+          ctx.translate(wordMidX, wordMidY);
+          if (popRotate !== 0) ctx.rotate(popRotate);
+          ctx.scale(scaleMult, scaleMult);
+          ctx.translate(-wordMidX, -wordMidY);
+        }
+
         if (!P.kotak && P.tepi) {
           ctx.lineWidth = P.tepi * 2 * S;
           ctx.strokeStyle = '#000';
-          ctx.strokeText(t, x, y);
+          ctx.strokeText(t, x, y + bounceY);
         }
-        if (!P.tepi && !P.kotak) {
-          ctx.shadowColor = 'rgba(0,0,0,.6)';
+        if (!P.tepi && !P.kotak && activePreset !== 'neon' && P.judul !== 'neon') {
+          ctx.shadowColor = 'rgba(0,0,0,.75)';
           ctx.shadowBlur = 8 * S;
           ctx.shadowOffsetY = 3 * S;
         }
         ctx.fillStyle = warna;
-        ctx.fillText(t, x, y);
-        ctx.shadowColor = 'transparent';
+        ctx.fillText(t, x, y + bounceY);
+        ctx.restore();
 
         // Emoji Otomatis melayang tepat di atas kata aktif / ber-emoji
         const emojiChar = customStyle?.emoji || (autoEmoji ? getEmojiForWord(t) : null);
-        if (emojiChar && (i === aktifI || i === kunciI || customStyle?.emoji)) {
+        if (emojiChar && (isAktif || i === kunciI || customStyle?.emoji)) {
           ctx.save();
-          const bounceY = (i === aktifI) ? -6 * S : -2 * S;
+          const emBounceY = bounceY + (isAktif ? -10 * S - 3 * S * Math.sin(performance.now() / 180) : -4 * S);
           ctx.font = `${uk * 0.95}px "Segoe UI Emoji", "Apple Color Emoji", sans-serif`;
           ctx.textAlign = 'center';
-          const lw = ctx.measureText(t).width;
-          ctx.fillText(emojiChar, x + lw / 2, y - uk * 1.15 + bounceY);
+          const lw = lebar[i];
+          ctx.fillText(emojiChar, x + lw / 2, y - uk * 1.15 + emBounceY);
           ctx.restore();
         }
 
@@ -1599,6 +1703,10 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
     customWordStyles,
     autoEmoji,
     zoomKeyphrase,
+    editQuoteInput,
+    isVideoPlaying,
+    currentVideoTime,
+    colorHighlight,
   ]);
 
   useEffect(() => {
@@ -3673,19 +3781,26 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
                   </span>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => setShowSafeZone(!showSafeZone)}
-                  className={`px-2.5 py-1 rounded-lg text-[10px] font-mono flex items-center gap-1.5 transition-colors border cursor-pointer ${
-                    showSafeZone
-                      ? 'bg-cyan-950 text-cyan-300 border-cyan-400/50 shadow-sm'
-                      : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-white'
-                  }`}
-                  title="Tampilkan / sembunyikan batas zona aman TikTok & Reels"
-                >
-                  <Shield className="w-3 h-3" />
-                  <span>Safe Zone {showSafeZone ? 'ON' : 'OFF'}</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <div className="hidden sm:flex items-center gap-1.5 px-2 py-1 rounded-lg bg-emerald-950/50 border border-emerald-800/40 text-[10px] font-mono text-emerald-300">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span>Subtitle Live</span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowSafeZone(!showSafeZone)}
+                    className={`px-2.5 py-1 rounded-lg text-[10px] font-mono flex items-center gap-1.5 transition-colors border cursor-pointer ${
+                      showSafeZone
+                        ? 'bg-cyan-950 text-cyan-300 border-cyan-400/50 shadow-sm'
+                        : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-white'
+                    }`}
+                    title="Tampilkan / sembunyikan batas zona aman TikTok & Reels"
+                  >
+                    <Shield className="w-3 h-3" />
+                    <span>Safe Zone {showSafeZone ? 'ON' : 'OFF'}</span>
+                  </button>
+                </div>
               </div>
 
               {/* Center Video Canvas Player Box */}
@@ -3889,6 +4004,20 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
                           }`}
                         />
                       </button>
+                    </div>
+
+                    {/* Live Kinetic Status Indicator */}
+                    <div className="flex items-center justify-between p-2.5 rounded-xl bg-cyan-950/40 border border-cyan-800/40 text-xs shadow-inner">
+                      <div className="flex items-center gap-2">
+                        <span className="relative flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                        </span>
+                        <span className="font-bold text-emerald-300 text-[11px]">Pratinjau Kinetik Aktif</span>
+                      </div>
+                      <span className="text-[10px] font-mono text-cyan-300 bg-cyan-950/70 border border-cyan-800/50 px-2 py-0.5 rounded-full">
+                        {isVideoPlaying ? 'Sinkron Audio' : 'Animasi Live (60 FPS)'}
+                      </span>
                     </div>
 
                     <div className="space-y-2">

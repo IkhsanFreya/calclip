@@ -38,6 +38,23 @@ def test_kalman_filter_state_and_jitter():
     kf.set_state(0.85, 0.5)
     assert kf.get_pos() == (0.85, 0.5), "State reset pada shot cut harus instan tanpa lag"
 
+    # 3. Uji Adaptive Measurement Noise (confidence tinggi = tracking lebih responsif)
+    kf.set_state(0.5, 0.5)
+    kf.predict(dt)
+    sx_high_conf, _ = kf.update(0.7, 0.5, confidence=0.95)
+    
+    kf2 = KalmanFilterLinear2D(q_pos=0.00015, q_vel=0.002, r_noise=0.04)
+    kf2.set_state(0.5, 0.5)
+    kf2.predict(dt)
+    sx_low_conf, _ = kf2.update(0.7, 0.5, confidence=0.20)
+    
+    # High confidence harus menarik estimasi lebih dekat ke pengukuran (responsif)
+    assert abs(sx_high_conf - 0.7) < abs(sx_low_conf - 0.7), "High confidence harus memiliki residual pengukuran lebih kecil"
+
+    # 4. Uji velocity monitoring
+    vx, vy = kf.get_vel()
+    assert vx > 0, "Kecepatan horizontal harus positif setelah target bergerak ke kanan"
+
     print("Semua pengujian Filter Kalman Linear 2D (alat/klip/klip.py) BERHASIL!")
 
 

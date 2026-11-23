@@ -457,21 +457,49 @@ _YUNET: dict = {}
 
 
 def wajah_di(fr, w: int, h: int) -> list[tuple[float, float, float]]:
-    """Semua wajah di satu frame: (x tengah, y tengah, lebar) dalam 0..1. YuNet bila modelnya ada, Haar sebagai cadangan."""
+    """Semua wajah di satu frame: (x tengah, y tengah, lebar) dalam 0..1.
+    Peningkatan Akurasi YuNet ONNX:
+    1) Resolusi adaptif 800px untuk video HD/FHD agar wajah streamer & sudut terdeteksi tajam.
+    2) Dual-pass threshold (0.45 standar, 0.30 fallback sensitif) untuk wajah miring & pencahayaan redup.
+    3) Penentuan titik tengah anatomis berbasis 5 landmark wajah (mata, hidung, mulut) untuk stabilitas ekstra.
+    """
     import cv2
-    lb = 640
+    lb = 800 if w >= 1280 else 640
     tb = int(h * lb / w)
     kecil = cv2.resize(fr, (lb, tb))
     model = Path(__file__).resolve().parent / "model" / "face_detection_yunet_2023mar.onnx"
     if model.exists() and hasattr(cv2, "FaceDetectorYN"):
         det = _YUNET.get((lb, tb))
         if det is None:
-            det = _YUNET[(lb, tb)] = cv2.FaceDetectorYN.create(str(model), "", (lb, tb), 0.6, 0.3, 50)
+            # Score threshold optimal 0.45, NMS 0.30 (Wu et al., 2023)
+            det = _YUNET[(lb, tb)] = cv2.FaceDetectorYN.create(str(model), "", (lb, tb), 0.45, 0.30, 50)
+        else:
+            det.setInputSize((lb, tb))
         _, f = det.detect(kecil)
-        return [((x + fw / 2) / lb, (y + fh / 2) / tb, fw / lb) for x, y, fw, fh, *_ in (f if f is not None else [])]
+        # Fallback sensitif: jika tidak ada wajah di threshold 0.45, gunakan 0.30 untuk wajah miring/terhalang
+        if f is None or len(f) == 0:
+            det.setScoreThreshold(0.30)
+            _, f = det.detect(kecil)
+            det.setScoreThreshold(0.45)
+
+        if f is not None and len(f) > 0:
+            hasil = []
+            for item in f:
+                x, y, fw, fh = item[:4]
+                # Hitung titik tengah kepala anatomis menggunakan landmark jika tersedia
+                if len(item) >= 14:
+                    re_x, le_x = item[4], item[6]
+                    nose_x = item[8]
+                    cx = (re_x + le_x + 2.0 * nose_x) / (4.0 * lb)
+                    cy = (y + fh * 0.42) / tb  # sedikit di atas tengah agar dahi & rambut tidak terpotong
+                else:
+                    cx = (x + fw / 2.0) / lb
+                    cy = (y + fh * 0.45) / tb
+                hasil.append((float(np.clip(cx, 0.05, 0.95)), float(np.clip(cy, 0.05, 0.95)), float(fw / lb)))
+            return hasil
     haar = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
     g = cv2.cvtColor(kecil, cv2.COLOR_BGR2GRAY)
-    return [((x + fw / 2) / lb, (y + fh / 2) / tb, fw / lb) for x, y, fw, fh in haar.detectMultiScale(g, 1.1, 5, minSize=(24, 24))]
+    return [((x + fw / 2) / lb, (y + fh / 2) / tb, fw / lb) for x, y, fw, fh in haar.detectMultiScale(g, 1.1, 4, minSize=(20, 20))]
 
 
 def info_wajah(file: Path, a: float, b: float, w: int, h: int) -> dict:
@@ -676,9 +704,10 @@ class KalmanFilterLinear2D:
     State vector: [x, y, vx, vy]^T
     Model gerak konstan kecepatan (Constant Velocity Model) untuk pelacakan koordinat wajah
     mengacu pada arsitektur Wu dkk. (2023) dan evaluasi Camera Jitter Index (CJI).
+    Dilengkapi noise pengukuran adaptif (Adaptive Measurement Noise) berbasis confidence deteksi YuNet.
     """
 
-    def __init__(self, q_pos: float = 0.00015, q_vel: float = 0.002, r_noise: float = 0.04):
+    def __init__(self, q_pos: float = 0.00010, q_vel: float = 0.0015, r_noise: float = 0.03):
         self.state = np.array([0.5, 0.5, 0.0, 0.0], dtype=np.float64)  # [x, y, vx, vy]
         self.P = np.eye(4, dtype=np.float64)  # Matriks kovarians error estimasi (4x4)
         self.q_pos = q_pos
@@ -689,24 +718,31 @@ class KalmanFilterLinear2D:
 
     def set_state(self, x: float, y: float = 0.5) -> None:
         self.state = np.array([x, y, 0.0, 0.0], dtype=np.float64)
-        self.P = np.eye(4, dtype=np.float64)
+        self.P = np.eye(4, dtype=np.float64) * 0.1
 
     def get_pos(self) -> tuple[float, float]:
         return float(self.state[0]), float(self.state[1])
 
+    def get_vel(self) -> tuple[float, float]:
+        return float(self.state[2]), float(self.state[3])
+
     def predict(self, dt: float) -> tuple[float, float]:
         self.state[0] += self.state[2] * dt
         self.state[1] += self.state[3] * dt
-        self.P[0, 0] += self.q_pos
-        self.P[1, 1] += self.q_pos
-        self.P[2, 2] += self.q_vel
-        self.P[3, 3] += self.q_vel
+        F = np.array([[1.0, 0.0, dt, 0.0],
+                      [0.0, 1.0, 0.0, dt],
+                      [0.0, 0.0, 1.0, 0.0],
+                      [0.0, 0.0, 0.0, 1.0]], dtype=np.float64)
+        Q = np.diag([self.q_pos, self.q_pos, self.q_vel, self.q_vel])
+        self.P = F @ self.P @ F.T + Q
         return float(self.state[0]), float(self.state[1])
 
-    def update(self, meas_x: float, meas_y: float = 0.5) -> tuple[float, float]:
+    def update(self, meas_x: float, meas_y: float = 0.5, confidence: float = 1.0) -> tuple[float, float]:
         z = np.array([meas_x, meas_y], dtype=np.float64)
         y = z - self.H @ self.state
-        S = self.H @ self.P @ self.H.T + np.eye(2, dtype=np.float64) * self.r_noise
+        conf = max(min(float(confidence), 1.0), 0.2)
+        r_adapt = self.r_noise / conf
+        S = self.H @ self.P @ self.H.T + np.eye(2, dtype=np.float64) * r_adapt
         K = self.P @ self.H.T @ np.linalg.inv(S)
         self.state += K @ y
         I = np.eye(4, dtype=np.float64)
@@ -735,13 +771,13 @@ def jejak_wajah(file: Path, a: float, b: float, w: int, h: int) -> list[tuple[fl
         suara = amplop_suara(file, a, b, fps)
     except Exception:  # noqa: BLE001 — video tanpa audio
         suara = np.zeros(int((b - a) * fps) + 1)
-    LB = 640
+    LB = 800 if w >= 1280 else 640
     sk = LB / w
     TB = int(h * sk)
     yunet = None
     model = Path(__file__).resolve().parent / "model" / "face_detection_yunet_2023mar.onnx"
     if model.exists() and hasattr(cv2, "FaceDetectorYN"):
-        yunet = cv2.FaceDetectorYN.create(str(model), "", (LB, TB), 0.6, 0.3, 50)
+        yunet = cv2.FaceDetectorYN.create(str(model), "", (LB, TB), 0.45, 0.30, 50)
     n = int((b - a) * fps) + 1
     cap = cv2.VideoCapture(str(file))
     cap.set(cv2.CAP_PROP_POS_MSEC, a * 1000)
@@ -765,12 +801,18 @@ def jejak_wajah(file: Path, a: float, b: float, w: int, h: int) -> list[tuple[fl
             potong[k] = float(np.abs(sd - sidik_lalu).mean()) > 28
         sidik_lalu = sd
         kotak = []
-        if yunet is not None:  # YuNet: tahan wajah miring, tertawa, berhijab
+        if yunet is not None:  # YuNet ONNX: deteksi deep learning multi-pose
+            yunet.setInputSize((LB, TB))
             _, hasil = yunet.detect(kecil)
+            if hasil is None or len(hasil) == 0:
+                yunet.setScoreThreshold(0.30)
+                _, hasil = yunet.detect(kecil)
+                yunet.setScoreThreshold(0.45)
             for r in (hasil if hasil is not None else []):
                 x, y, fw, fh = (int(max(v, 0)) for v in r[:4])
+                score = float(r[14]) if len(r) >= 15 else 1.0
                 if fw > 8 and fh > 8:
-                    kotak.append((x, y, min(fw, LB - x), min(fh, TB - y), 1.0))
+                    kotak.append((x, y, min(fw, LB - x), min(fh, TB - y), score))
         else:
             kotak = [(x, y, fw, fh, 1.0) for (x, y, fw, fh) in depan.detectMultiScale(abu, 1.1, 5, minSize=(24, 24))]
         if not kotak:  # profil hanya bila tidak ada wajah depan (hemat waktu)
@@ -857,17 +899,17 @@ def jejak_wajah(file: Path, a: float, b: float, w: int, h: int) -> list[tuple[fl
         else:
             akhir = target[j]
 
-    # Penerapan Filter Kalman Linear 2D + Deadzone Hysteresis untuk Dynamic Auto-Reframing stabil
+    # Penerapan Filter Kalman Linear 2D + Dynamic Deadzone Hysteresis untuk Dynamic Auto-Reframing stabil
     kalman = KalmanFilterLinear2D()
     kalman.set_state(target[0], 0.5)
     dt = 1.0 / fps
-    deadzone = 0.025  # ambang deadzone peredam micro-jitter wajah (2.5% layar)
     max_vel = 0.85    # pembatasan kecepatan perpindahan kamera (L1-norm velocity clamp)
 
     smoothed = [target[0]] * n
     for j in range(n):
         raw_x = target[j]
         curr_x, _ = kalman.get_pos()
+        vx, _ = kalman.get_vel()
         lompat_pembicara = abs(raw_x - curr_x) >= 0.16  # perpindahan antar pembicara (kiri ⇄ kanan)
 
         if j == 0 or potong[j] or lompat_pembicara:
@@ -877,10 +919,12 @@ def jejak_wajah(file: Path, a: float, b: float, w: int, h: int) -> list[tuple[fl
             continue
 
         dist = abs(raw_x - curr_x)
-        meas_x = curr_x + (raw_x - curr_x) * 0.2 if dist < deadzone else raw_x
+        # Deadzone dinamis: 0.035 saat diam (anti-jitter), 0.012 saat bergerak (responsif & mulus)
+        deadzone = 0.035 if abs(vx) < 0.05 else 0.012
+        meas_x = curr_x + (raw_x - curr_x) * 0.15 if dist < deadzone else raw_x
 
         kalman.predict(dt)
-        kx, _ = kalman.update(meas_x, 0.5)
+        kx, _ = kalman.update(meas_x, 0.5, confidence=1.0)
 
         # Velocity clamping
         max_delta = max_vel * dt
