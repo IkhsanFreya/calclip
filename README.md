@@ -93,15 +93,21 @@ Seluruh proses transkripsi, deteksi wajah, dan rendering video berjalan secara l
 - **CPU Fallback Otomatis:** Deteksi cerdas yang mengalihkan proses ke encoder CPU (`libx264`) secara aman jika GPU dedicated tidak terpasang.
 - **Render Klip Satuan:** Render satu klip spesifik tanpa harus menunggu seluruh batch selesai.
 
-### 6. Generator Motion AI (Video Animasi dari Topik)
+### 6. Studio-Grade Audio Mastering & Voice Denoising
+- **Broadcast Loudness Normalization (EBU R128):** Normalisasi volume audio vokal target $-14\text{ LUFS}$ dengan True Peak $-1.0\text{ dBTP}$ (standar resmi TikTok, Instagram Reels, dan YouTube Shorts) agar suara terdengar lantang, tebal, dan bebas distorsi di speaker smartphone.
+- **AI Speech Denoise (Adaptive FFT):** Pembersih derau otomatis yang meredam suara kipas laptop, desis kelistrikan mic (>12 kHz), serta gemuruh angin (<80 Hz).
+- **Anti-Click Boundary Micro-Fade:** Pemotongan klip cerdas dengan transisi micro-fade di awal dan akhir batas waktu untuk menghilangkan letupan audio (*pop/click*).
+- **Auto Audio Ducking:** Pengecilan volume musik latar secara otomatis saat pembicara bersuara dan kembali normal pada jeda hening.
+
+### 7. Generator Motion AI (Video Animasi dari Topik)
 - **Naskah Otomatis:** Tulis satu topik ide, AI merangkai naskah per adegan lengkap dengan narasi.
 - **Suara Narator Natural:** Integrasi Edge-TTS dan Kokoro TTS untuk suara narator berkualitas tinggi.
 - **Render Video 30fps:** Menggunakan Remotion engine untuk menghasilkan video animasi siap posting.
 
-### 7. Generator Deskripsi dan Tagar
+### 8. Generator Deskripsi dan Tagar
 - Ekstraksi judul, kutipan pokok, serta pembuatan kumpulan tagar relevan dalam satu klik untuk mempermudah distribusi konten ke platform media sosial.
 
-### 8. Keamanan dan Isolasi Data
+### 9. Keamanan dan Isolasi Data
 - **Loopback Isolation:** Layanan backend terikat eksklusif pada interface loopback (`127.0.0.1`), mencegah akses tidak sah melalui jaringan LAN/Wi-Fi.
 - **Proteksi Rebinding & CSRF:** Validasi ketat pada Host Header serta penolakan permintaan lintas domain.
 - **Penyimpanan Terisolasi:** Berkas proyek, konfigurasi, dan riwayat video disimpan di direktori pengguna (`%USERPROFILE%\CalClip`), memastikan data tetap utuh saat aplikasi diperbarui.
@@ -173,7 +179,9 @@ Antarmuka aplikasi dapat diakses melalui browser pada alamat:
 
 ### v2.1.0 — Dynamic Subtitles, Facecam Smart Framing & AI Motion Suite
 - Subtitle kinetik word-by-word dengan timestamp Whisper AI
-- Smart facecam framing dengan zoom hingga 5.0x dan Filter Kalman
+- Smart facecam framing dengan zoom hingga 5.0x dan Filter Kalman Linear 2D
+- Broadcast Audio Loudness Normalization EBU R128 (-14 LUFS) & AI Speech Denoise (FFT)
+- Anti-click boundary micro-fade & auto audio ducking BGM
 - 10+ preset animasi subtitle baru
 - Word Inspector untuk highlight dan emoji per kata
 - Render klip satuan (satu per satu)
