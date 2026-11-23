@@ -68,14 +68,18 @@ Seluruh proses transkripsi, deteksi wajah, dan rendering video berjalan secara l
 
 ### 2. Subtitle Kinetik Dinamis (Word-by-Word)
 - **Sinkronisasi Per Kata:** Subtitle tampil kata per kata secara real-time menggunakan timestamp dari Whisper AI, memberikan efek "karaoke" yang menarik perhatian penonton.
+- **Sinkronisasi Presisi (Lock-Step saat Dijeda):** Saat video dijeda (pause) untuk mengatur gaya atau memeriksa tampilan, kata-kata subtitle terkunci rapat pada frame video yang sedang dijeda (tidak berjalan sendiri).
+- **Pratinjau Instan & Animasi 60 FPS:** Mengganti gaya, font, atau warna sorotan langsung memperbarui frame pratinjau di detik yang sama secara real-time, dengan animasi kinetik 60 FPS halus saat video diputar.
 - **10+ Preset Animasi:** Sorot Kuning, Pop Kapital, Kotak Hitam, Neon Glow, Komik Pop, Karaoke, Minimal, Halus Elegan, Lime Box, Serif Elegan, Kertas Sobek, dan Merek CalClip.
 - **Word Inspector:** Klik kata individual untuk menyorot atau menambahkan emoji secara presisi.
 - **Penyaring Kata (Family Friendly):** Deteksi dan penyensoran otomatis kata-kata tidak pantas pada subtitle menjadi representasi asterisk (`***`).
 
 ### 3. Smart Facecam Framing (Zoom Hingga 5.0x)
-- **YuNet ONNX Face Tracker:** Pelacakan posisi wajah subjek secara real-time pada setiap adegan video.
-- **Filter Kalman Linear 2D:** Meredam getaran kamera (camera jitter) hingga >95% sehingga transisi framing 9:16 tetap halus, tenang, dan stabil.
-- **Deadzone Hysteresis:** Mencegah goyangan pembingkaian saat subjek melakukan pergerakan kepala kecil.
+- **YuNet ONNX Face Tracker:** Pelacakan posisi wajah subjek secara real-time dengan resolusi adaptif 800px dan dual-pass recall (threshold primer 0.45 & sensitif fallback 0.30).
+- **5-Landmark Anatomical Centering:** Titik tengah crop kamera dijangkarkan pada koordinat mata dan hidung, mengeliminasi getaran mikro (*micro-flutter*) akibat gerakan bibir atau mikrofon.
+- **Filter Kalman Linear 2D (Adaptive Measurement Noise):** Model state konstan kecepatan ($4 \times 1$) dengan perambatan kovariansi penuh ($F P F^T + Q$) dan kovariansi pengukuran adaptif ($R_{\text{adapt}} = R / \text{conf}$), meredam getaran kamera (*camera jitter*) > 80%.
+- **Dynamic Deadzone Hysteresis:** Deadzone mengunci kaku (0.035) saat subjek diam dan adaptif responsif (0.012) saat kamera melakukan gerakan panning aktif.
+- **Extended Zoom (1.0x – 5.0x):** Batas zoom diperluas hingga 5.0x sehingga webcam kecil di sudut video gameplay (Mobile Legends / game lainnya) dapat di-crop rapat ke wajah & pundak streamer tanpa kebocoran HUD/banner game.
 - **5 Mode Layout Kamera:**
   - Podcast 1 Layar (Auto Pembicara)
   - Split Podcast (2 Layar)
@@ -119,8 +123,8 @@ Seluruh proses transkripsi, deteksi wajah, dan rendering video berjalan secara l
 
 ### Pemasangan Menggunakan Installer Mandiri
 1. Unduh berkas resmi pada halaman **[Releases](https://github.com/IkhsanFreya/calclip/releases/latest)**:
-   - **`CalClip-v2.1-Windows-Setup.exe`** (~181 MB — Wizard Installer Otomatis)
-   - **`CalClip-v2.1-Windows-Setup.zip`** (~181 MB — Arsip ZIP Resmi)
+   - **`CalClip-v2.1-Windows-Setup.exe`** (~330 MB — Wizard Installer Mandiri Lengkap)
+   - **`CalClip-v2.1-Windows-Setup.zip`** (~330 MB — Arsip ZIP Resmi)
 2. Jalankan berkas installer (tidak membutuhkan hak akses Administrator / UAC).
 3. Ikuti instruksi pada wizard instalasi. Aplikasi akan otomatis terpasang dengan pintasan di Desktop dan Start Menu.
 
@@ -178,15 +182,31 @@ Antarmuka aplikasi dapat diakses melalui browser pada alamat:
 ## Riwayat Versi
 
 ### v2.1.0 — Dynamic Subtitles, Facecam Smart Framing & AI Motion Suite
-- Subtitle kinetik word-by-word dengan timestamp Whisper AI
-- Smart facecam framing dengan zoom hingga 5.0x dan Filter Kalman Linear 2D
-- Broadcast Audio Loudness Normalization EBU R128 (-14 LUFS) & AI Speech Denoise (FFT)
-- Anti-click boundary micro-fade & auto audio ducking BGM
-- 10+ preset animasi subtitle baru
-- Word Inspector untuk highlight dan emoji per kata
-- Render klip satuan (satu per satu)
-- Mode layout streamer lengkap (Solo, Podcast, Split, PiP)
-- Generator Motion AI dengan naskah dan suara narator otomatis
+- **🎬 Sinkronisasi Subtitle Lock-step saat Video Dijeda (Pause):**
+  - Teks subtitle terkunci rapat pada frame video yang sedang dijeda (tidak berjalan sendiri saat di-pause).
+  - Mengubah gaya, font, atau warna sorotan langsung memperbarui tampilan subtitle di detik yang sama secara real-time.
+  - Pratinjau animasi kinetik 60 FPS berjalan mulus saat video diputar.
+  - Live text editing: Perubahan teks pada tab Teks langsung tercermin seketika pada video.
+- **👁️ Peningkatan Akurasi YuNet ONNX & 5-Landmark Centering:**
+  - Skala resolusi masukan adaptif 800px untuk meningkatkan recall deteksi wajah kecil dan jarak jauh.
+  - Dual-pass face recall (threshold primer 0.45 & sensitif fallback 0.30) untuk menjaga deteksi pada sudut miring atau pencahayaan rendah.
+  - Titik crop kamera dijangkarkan pada koordinat anatomis mata dan hidung (bukan sekadar bounding box luar) untuk menghilangkan micro-flutter.
+- **📐 Filter Kalman Linear 2D dengan Adaptive Measurement Noise:**
+  - Model gerak konstan kecepatan 2D ($[x, y, v_x, v_y]^T$) dengan perambatan kovariansi penuh ($F P F^T + Q$).
+  - Kovariansi pengukuran adaptif ($R_{\text{adapt}} = R / \text{conf}$) untuk mengeliminasi lonjakan posisi pada deteksi dengan confidence rendah.
+  - Dynamic Deadzone Hysteresis (0.035 saat diam, 0.012 saat bergerak), meredam getaran kamera (*camera jitter*) > 80%.
+- **🎮 Smart Facecam Framing & Extended Zoom (Hingga 5.0x):**
+  - Rentang zoom diperluas hingga 5.0x sehingga webcam streamer di pojok layar gameplay (Mobile Legends, dll.) dapat di-crop rapat ke pundak & wajah.
+  - Eliminasi kebocoran HUD/banner game pada framing vertikal 9:16.
+  - 5 mode layout kamera lengkap (Solo, Podcast, Split 2 Layar, Wajah Atas + Gameplay Bawah, PiP).
+- **🎙️ Broadcast Audio Mastering & Voice Denoising:**
+  - Loudness normalization EBU R128 (-14 LUFS, -1.0 dBTP) standar TikTok, Reels, dan Shorts.
+  - AI Speech Denoise berbasis Adaptive FFT untuk meredam derau kipas laptop dan desis mic.
+  - Anti-click boundary micro-fade & auto audio ducking BGM saat vokal aktif.
+- **⚡ Fitur Alur Kerja & Kemasan Mandiri:**
+  - Tombol "Render Klip Ini" untuk merender klip individual tanpa menunggu antrean batch.
+  - Header HTTP `Content-Disposition: attachment` untuk memastikan download video di browser berjalan lancar.
+  - Kemasan installer mandiri ~330 MB lengkap dengan runtime Python 3.12 lokal, binary FFmpeg 87MB berakselerasi GPU (NVENC/QSV/AMF), Faster-Whisper INT8, dan yt-dlp.
 
 ### v2.0.0 — Production Release
 - Rilis produksi pertama dengan installer Windows mandiri
@@ -195,6 +215,18 @@ Antarmuka aplikasi dapat diakses melalui browser pada alamat:
 - Akselerasi GPU (NVENC, QSV, AMF) dengan CPU fallback
 - Keamanan loopback isolation dan proteksi CSRF
 - Preset gaya influencer (Alex Hormozi, MrBeast, Ali Abdaal, TikTok Neon)
+
+---
+
+## 🎓 Relevansi Akademik & Riset Skripsi
+
+Aplikasi CalClip.IN dikembangkan sebagai instrumen penelitian dan implementasi teknis pada Program Studi Informatika, Fakultas Teknik, Universitas Siliwangi dengan judul usulan skripsi:
+
+> **"Implementasi Faster-Whisper Terkuantisasi INT8 dan Dynamic Auto-Reframing Berbasis YuNet serta Filter Kalman Linear 2D pada Aplikasi Video Clipper Otomatis CalClip.IN"**
+
+Fokus penelitian mencakup:
+1. **Efisiensi Transkripsi:** Optimalisasi inferensi Automatic Speech Recognition (ASR) menggunakan arsitektur Faster-Whisper terkuantisasi INT8 pada CPU dan GPU lokal.
+2. **Stabilitas Pembingkaian Kamera:** Penerapan model deteksi wajah YuNet ONNX yang dipadukan dengan Filter Kalman Linear 2D dan Dynamic Deadzone Hysteresis untuk meredam jittering pada konversi video horizontal ke vertikal 9:16.
 
 ---
 

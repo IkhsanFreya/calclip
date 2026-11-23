@@ -57,16 +57,21 @@ Silakan unduh berkas aplikasi resmi pada daftar **Assets** di bawah:
 
 ### Ringkasan Pembaruan dan Fitur v2.1.0
 
-#### 🎯 Subtitle Dinamis Word-by-Word (Akurasi Whisper Timestamp)
-- **Sinkronisasi Karaoke Real-Time**: Subtitle di kanvas pratinjau bergerak dinamis kata demi kata mengikuti alur bicara asli dari transkrip Whisper (`transkrip.json`).
-- **Smooth 60 FPS Render Loop**: Highlight kata yang sedang diucapkan berganti mulus secara real-time tanpa teks beku.
-- **Graceful Segment Holding**: Teks tetap tampil rapi di layar saat jeda bicara tanpa berkedip atau menghilang tiba-tiba.
+#### 🎬 Sinkronisasi Subtitle Presisi (Terkunci Sesuai Frame Jeda)
+- **Lock-step Video Pause**: Saat video dijeda (pause) untuk mengatur gaya atau memeriksa klip, teks subtitle **terkunci rapat pada detik/frame video yang sedang dijeda** (tidak berjalan sendiri).
+- **Instant Style & Preset Preview**: Mengganti preset (Pop Kapital, Neon Glow, Karaoke, Lime Box, font, warna sorotan) langsung memperbarui tampilan subtitle di posisi jeda secara instan dan rapi.
+- **Dynamic 60 FPS saat Putar**: Saat video diputar, animasi kinetik kata per kata (bouncing pop, karaoke sweep, neon pulse) berjalan mulus tersinkronisasi audio transkrip Whisper.
+- **Live Text Editing**: Teks yang disunting pada tab Teks langsung tercermin seketika di posisi video.
+
+#### 👁️ Peningkatan Akurasi YuNet ONNX & Filter Kalman 2D (Sesuai Skripsi)
+- **Dual-Pass Face Recall**: Resolusi masukan adaptif 800px dan ambang ganda (0.45 & 0.30 sensitive fallback) memastikan retensi deteksi wajah stabil pada sudut miring dan jarak jauh.
+- **5-Landmark Anatomical Centering**: Titik tengah crop kamera dijangkarkan pada koordinat mata dan hidung, menghilangkan getaran mikro (*flutter*) akibat gerakan bibir atau mikrofon.
+- **Adaptive Kalman Measurement Noise**: Nilai $R$ diskalakan berbanding terbalik dengan skor confidence ($R_{\text{adapt}} = R / \text{conf}$), menghasilkan pergerakan kamera mulus tanpa getaran (variansi jitter teredam > 80%).
+- **Dynamic Deadzone Hysteresis**: Deadzone otomatis mengunci kaku (0.035) saat diam dan responsif (0.012) saat kamera bergerak panning.
 
 #### 🎮 Smart Facecam Framing & Zoom Ekstra (hingga 5.0x)
 - **Extended Zoom (1.0x - 5.0x)**: Batas zoom diperluas hingga 5.0x sehingga webcam kecil di sudut video gameplay (Mobile Legends / game lainnya) dapat di-crop rapat ke wajah & pundak streamer.
 - **Eliminasi Banner UI Game**: Memotong rapi area luar webcam sehingga banner diskon dan HUD game tidak bocor ke frame wajah atas.
-- **Preset & Auto-Detection Cerdas**: Klik tombol preset sudut (misal: *Kiri Bwh*) otomatis menerapkan zoom optimal `3.6x` dengan koordinat presisi (`X: 11%`, `Y: 87%`).
-- **Proporsi Layar Seimbang**: Default tinggi kamera atas diset ke `45%` (rentang sehat 30% - 65%), menghilangkan celah blur kosong di bagian tengah.
 
 #### 🎙️ Podcast Split Shot & Deteksi 2 Pembicara
 - **Shot Transisi Otomatis**: Transisi otomatis antara layar penuh 9:16 (saat menyorot 1 pembicara) dan Split 2 Layar (saat kamera melebar memperlihatkan 2 orang pembicara).
@@ -76,8 +81,6 @@ Silakan unduh berkas aplikasi resmi pada daftar **Assets** di bawah:
 - **Tombol "Render Klip Ini"**: Kemampuan merender hanya satu klip terpilih tanpa harus merender semua klip dalam daftar.
 - **Direct Download Headers**: Penanganan header HTTP `Content-Disposition: attachment` pada endpoint berkas video untuk mencegah eror unduhan browser.
 
-#### 🔊 Integrasi Suara Alami (AI Motion)
-- Integrasi modul `suara-natural.py` berbasis Edge-TTS untuk menghasilkan sulih suara (*voiceover*) bahasa Indonesia alami dan ekspresif.
 """
 
 # 2. Cek apakah rilis sudah ada atau buat baru
@@ -129,12 +132,17 @@ files_to_publish = [
     'hasil-installer/CalClip-v2.1-Windows-Setup.zip'
 ]
 
-# Pastikan file zip sudah ada
+# Pastikan file zip selalu baru dan sinkron dengan installer .exe
 import zipfile
-if not os.path.exists('hasil-installer/CalClip-v2.1-Windows-Setup.zip'):
-    print('Membuat arsip zip dari installer...')
-    with zipfile.ZipFile('hasil-installer/CalClip-v2.1-Windows-Setup.zip', 'w', compression=zipfile.ZIP_STORED) as z:
-        z.write('hasil-installer/CalClip-v2.1-Windows-Setup.exe', arcname='CalClip-v2.1-Windows-Setup.exe')
+if os.path.exists('hasil-installer/CalClip-v2.1-Windows-Setup.zip'):
+    try:
+        os.remove('hasil-installer/CalClip-v2.1-Windows-Setup.zip')
+    except Exception:
+        pass
+
+print('Membuat arsip zip terbaru dari installer...')
+with zipfile.ZipFile('hasil-installer/CalClip-v2.1-Windows-Setup.zip', 'w', compression=zipfile.ZIP_STORED) as z:
+    z.write('hasil-installer/CalClip-v2.1-Windows-Setup.exe', arcname='CalClip-v2.1-Windows-Setup.exe')
 
 for rel_fpath in files_to_publish:
     file_path = os.path.abspath(rel_fpath)
