@@ -1249,9 +1249,13 @@ def main():
                         f"--user-data-dir={user_data}",
                         "--window-size=1360,880",
                     ]
+                    waktu_mulai = time.time()
                     proc = subprocess.Popen(args)
                     jendela_terbuka = True
                     proc.wait()
+                    if time.time() - waktu_mulai < 2:
+                        while True:
+                            time.sleep(3600)
                     break
                 except Exception:
                     pass

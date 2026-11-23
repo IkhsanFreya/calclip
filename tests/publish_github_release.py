@@ -148,15 +148,11 @@ for rel_fpath in files_to_publish:
             assets_list = json.loads(aresp.read().decode())
             for a in assets_list:
                 if a.get('name') == file_name:
-                    if a.get('size') == file_size:
-                        print(f"Asset {file_name} ({file_size / (1024*1024):.2f} MB) sudah ada dan sesuai.")
-                        asset_exists = True
-                    else:
-                        aid = a['id']
-                        print(f"Ukuran berbeda pada {file_name}, menghapus asset ID {aid}...")
-                        del_req = urllib.request.Request(f'https://api.github.com/repos/{repo}/releases/assets/{aid}', headers=headers, method='DELETE')
-                        with urllib.request.urlopen(del_req) as dresp:
-                            print(f"Asset lama {file_name} dihapus.")
+                    aid = a['id']
+                    print(f"Menghapus asset lama {file_name} (ID {aid})...")
+                    del_req = urllib.request.Request(f'https://api.github.com/repos/{repo}/releases/assets/{aid}', headers=headers, method='DELETE')
+                    with urllib.request.urlopen(del_req) as dresp:
+                        print(f"Asset lama {file_name} dihapus.")
     except Exception as ea:
         print(f"Catatan pengecekan asset {file_name}: {ea}")
 
