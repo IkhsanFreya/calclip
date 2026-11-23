@@ -119,8 +119,8 @@ Seluruh proses transkripsi, deteksi wajah, dan rendering video berjalan secara l
 
 ### Pemasangan Menggunakan Installer Mandiri
 1. Unduh berkas resmi pada halaman **[Releases](https://github.com/IkhsanFreya/calclip/releases/latest)**:
-   - **`CalClip-v2.1-Windows-Setup.exe`** (~310 MB — Wizard Installer Otomatis)
-   - **`CalClip-v2.1-Windows-Setup.zip`** (~310 MB — Arsip ZIP Resmi)
+   - **`CalClip-v2.1-Windows-Setup.exe`** (~181 MB — Wizard Installer Otomatis)
+   - **`CalClip-v2.1-Windows-Setup.zip`** (~181 MB — Arsip ZIP Resmi)
 2. Jalankan berkas installer (tidak membutuhkan hak akses Administrator / UAC).
 3. Ikuti instruksi pada wizard instalasi. Aplikasi akan otomatis terpasang dengan pintasan di Desktop dan Start Menu.
 
