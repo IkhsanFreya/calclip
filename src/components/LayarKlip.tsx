@@ -1410,91 +1410,76 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
       let aktifI = 1;
       let wordPhase = 0.5; // 0.0 to 1.0 progress through active word
 
-      // Kumpulkan bank kata dari edit input, kutipan klip aktif, atau transkrip
-      let rawWordPool: string[] = [];
-      if (editQuoteInput && editQuoteInput.trim().length > 0) {
-        rawWordPool = editQuoteInput.trim().replace(/[“”,.?!]/g, '').split(/\s+/).filter(Boolean);
-      } else if (activeClip?.quote && activeClip.quote.trim().length > 0) {
-        rawWordPool = activeClip.quote.trim().replace(/[“”,.?!]/g, '').split(/\s+/).filter(Boolean);
-      } else if (projectTranscript && projectTranscript.length > 0) {
-        const clipStart = editStartTime || activeClip?.startTime || 0;
-        const clipEnd = editEndTime || activeClip?.endTime || 30;
-        const clipSegs = projectTranscript.filter(s => s.mulai >= clipStart - 0.5 && s.selesai <= clipEnd + 0.5);
-        const segsToScan = clipSegs.length > 0 ? clipSegs : projectTranscript;
-        for (const s of segsToScan) {
-          if (s.kata && s.kata.length > 0) {
-            for (const k of s.kata) rawWordPool.push(k.teks);
-          } else if (s.teks) {
-            rawWordPool.push(...s.teks.replace(/[“”,.?!]/g, '').split(/\s+/).filter(Boolean));
+      // Sinkronisasi kata dengan waktu pemutar video (saat berputar maupun saat jeda tetap terkunci pada frame video)
+      let foundInTranscript = false;
+      if (projectTranscript && projectTranscript.length > 0) {
+        const seg = projectTranscript.find((s) => curT >= s.mulai - 0.20 && curT <= s.selesai + 0.35);
+        if (seg && seg.kata && seg.kata.length > 0) {
+          let wIdx = seg.kata.findIndex((k) => curT >= k.mulai && curT <= k.selesai);
+          if (wIdx === -1) {
+            wIdx = seg.kata.findIndex((k) => curT < k.mulai);
+            if (wIdx === -1) wIdx = seg.kata.length - 1;
+            else wIdx = Math.max(0, wIdx - 1);
+          }
+          const chunkStart = Math.floor(wIdx / chunkSize) * chunkSize;
+          const chunk = seg.kata.slice(chunkStart, chunkStart + chunkSize);
+          contoh = chunk.map((c) => c.teks);
+          aktifI = wIdx - chunkStart;
+          const kw = seg.kata[wIdx];
+          if (kw) {
+            const kwDur = Math.max(0.1, kw.selesai - kw.mulai);
+            wordPhase = isPlaying ? Math.max(0, Math.min(1, (curT - kw.mulai) / kwDur)) : 0.5;
+          }
+          foundInTranscript = true;
+        } else if (seg && seg.teks) {
+          const sWords = seg.teks.split(/\s+/).filter(Boolean);
+          const segDur = Math.max(0.5, seg.selesai - seg.mulai);
+          const relT = Math.max(0, Math.min(segDur, curT - seg.mulai));
+          const wIdx = Math.min(sWords.length - 1, Math.floor((relT / segDur) * sWords.length));
+          const chunkStart = Math.floor(wIdx / chunkSize) * chunkSize;
+          contoh = sWords.slice(chunkStart, chunkStart + chunkSize);
+          aktifI = wIdx - chunkStart;
+          wordPhase = isPlaying ? (relT / (segDur / Math.max(1, sWords.length))) % 1.0 : 0.5;
+          foundInTranscript = true;
+        } else {
+          // Jika curT berada pada jeda bicara, tampilkan segmen terdekat (tidak kosong dan tidak lompat)
+          const closestSeg = projectTranscript.reduce((prev, curr) =>
+            Math.abs(curr.mulai - curT) < Math.abs(prev.mulai - curT) ? curr : prev
+          , projectTranscript[0]);
+          if (closestSeg) {
+            const sWords = (closestSeg.kata && closestSeg.kata.length > 0)
+              ? closestSeg.kata.map(k => k.teks)
+              : closestSeg.teks.split(/\s+/).filter(Boolean);
+            const chunk = sWords.slice(0, chunkSize);
+            if (chunk.length > 0) {
+              contoh = chunk;
+              aktifI = 0;
+              wordPhase = 0.5;
+              foundInTranscript = true;
+            }
           }
         }
       }
-      if (rawWordPool.length === 0) {
-        rawWordPool = ['KONTEN', 'VIRAL', 'OTOMATIS', 'DENGAN', 'AI', 'CALCLIP'];
-      }
 
-      if (isPlaying) {
-        // Mode A: Video sedang berputar -> Sinkronisasi audio transcript
-        let foundInTranscript = false;
-        if (projectTranscript && projectTranscript.length > 0) {
-          const seg = projectTranscript.find((s) => curT >= s.mulai - 0.15 && curT <= s.selesai + 0.25);
-          if (seg && seg.kata && seg.kata.length > 0) {
-            let wIdx = seg.kata.findIndex((k) => curT >= k.mulai && curT <= k.selesai);
-            if (wIdx === -1) {
-              wIdx = seg.kata.findIndex((k) => curT < k.mulai);
-              if (wIdx === -1) wIdx = seg.kata.length - 1;
-              else wIdx = Math.max(0, wIdx - 1);
-            }
-            const chunkStart = Math.floor(wIdx / chunkSize) * chunkSize;
-            const chunk = seg.kata.slice(chunkStart, chunkStart + chunkSize);
-            contoh = chunk.map((c) => c.teks);
-            aktifI = wIdx - chunkStart;
-            const kw = seg.kata[wIdx];
-            if (kw) {
-              const kwDur = Math.max(0.1, kw.selesai - kw.mulai);
-              wordPhase = Math.max(0, Math.min(1, (curT - kw.mulai) / kwDur));
-            }
-            foundInTranscript = true;
-          } else if (seg && seg.teks) {
-            const sWords = seg.teks.split(/\s+/).filter(Boolean);
-            const segDur = Math.max(0.5, seg.selesai - seg.mulai);
-            const relT = Math.max(0, Math.min(segDur, curT - seg.mulai));
-            const wIdx = Math.min(sWords.length - 1, Math.floor((relT / segDur) * sWords.length));
-            const chunkStart = Math.floor(wIdx / chunkSize) * chunkSize;
-            contoh = sWords.slice(chunkStart, chunkStart + chunkSize);
-            aktifI = wIdx - chunkStart;
-            wordPhase = (relT / (segDur / Math.max(1, sWords.length))) % 1.0;
-            foundInTranscript = true;
-          }
+      if (!foundInTranscript) {
+        let sourceWords: string[] = [];
+        if (editQuoteInput && editQuoteInput.trim().length > 0) {
+          sourceWords = editQuoteInput.trim().replace(/[“”,.?!]/g, '').split(/\s+/).filter(Boolean);
+        } else if (activeClip?.quote) {
+          sourceWords = activeClip.quote.replace(/[“”,.?!]/g, '').split(/\s+/).filter(Boolean);
         }
-
-        if (!foundInTranscript && activeClip?.quote) {
-          const rawWords = activeClip.quote.replace(/[“”,.?!]/g, '').split(/\s+/).filter(Boolean);
-          if (rawWords.length > 0) {
-            const clipStart = editStartTime || activeClip.startTime || 0;
-            const clipEnd = editEndTime || activeClip.endTime || (clipStart + 30);
-            const clipDur = Math.max(1, clipEnd - clipStart);
-            const relT = Math.max(0, Math.min(clipDur, curT - clipStart));
-            const progress = relT / clipDur;
-            const wIdx = Math.min(rawWords.length - 1, Math.floor(progress * rawWords.length));
-            const chunkStart = Math.floor(wIdx / chunkSize) * chunkSize;
-            contoh = rawWords.slice(chunkStart, chunkStart + chunkSize);
-            aktifI = wIdx - chunkStart;
-            wordPhase = (progress * rawWords.length) % 1.0;
-          }
+        if (sourceWords.length > 0) {
+          const clipStart = editStartTime || activeClip?.startTime || 0;
+          const clipEnd = editEndTime || activeClip?.endTime || (clipStart + 30);
+          const clipDur = Math.max(1, clipEnd - clipStart);
+          const relT = Math.max(0, Math.min(clipDur, curT - clipStart));
+          const progress = relT / clipDur;
+          const wIdx = Math.min(sourceWords.length - 1, Math.floor(progress * sourceWords.length));
+          const chunkStart = Math.floor(wIdx / chunkSize) * chunkSize;
+          contoh = sourceWords.slice(chunkStart, chunkStart + chunkSize);
+          aktifI = wIdx - chunkStart;
+          wordPhase = isPlaying ? (progress * sourceWords.length) % 1.0 : 0.5;
         }
-      } else {
-        // Mode B: Video Jeda / Sedang Edit Gaya -> ANIMASI KINETIK AKTIF TIDAK FREEZE!
-        // Berjalan mulus 60 FPS menggunakan waktu nyata (wall-clock time)
-        const wps = 2.4; // 2.4 kata per detik (ritme bicara normal ~144 WPM)
-        const simTime = (performance.now() / 1000) * wps;
-        const totalWords = rawWordPool.length;
-        const globalWIdx = Math.floor(simTime) % totalWords;
-        const chunkStart = Math.floor(globalWIdx / chunkSize) * chunkSize;
-        const chunkEnd = Math.min(totalWords, chunkStart + chunkSize);
-        contoh = rawWordPool.slice(chunkStart, chunkEnd);
-        aktifI = globalWIdx - chunkStart;
-        wordPhase = simTime % 1.0;
       }
 
       const kata = contoh.map(hurufFn);
@@ -1534,27 +1519,27 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
         let warna = '#fff';
         const baseColor = customStyle?.color || getSentimentColor(t, P.warna || highlightColor);
 
-        // Dynamic scale & spring bounce per preset
+        // Dynamic scale & spring bounce (aktif penuh saat play, stabil rapi saat jeda)
         let scaleMult = 1.0;
         let bounceY = 0;
         let popRotate = 0;
 
         if (isAktif) {
           if (P.mode === 'pop' || activePreset === 'pop') {
-            const spring = Math.sin(Math.min(1, wordPhase * 3.2) * Math.PI);
+            const spring = isPlaying ? Math.sin(Math.min(1, wordPhase * 3.2) * Math.PI) : 0;
             scaleMult = 1.10 + 0.12 * spring;
             bounceY = -8 * S * spring;
           } else if (activePreset === 'neon' || P.judul === 'neon') {
-            const spring = Math.sin(Math.min(1, wordPhase * 3.0) * Math.PI);
+            const spring = isPlaying ? Math.sin(Math.min(1, wordPhase * 3.0) * Math.PI) : 0;
             scaleMult = 1.08 + 0.08 * spring;
             bounceY = -5 * S * spring;
           } else if (P.mode === 'komik' || activePreset === 'komik') {
-            const spring = Math.sin(Math.min(1, wordPhase * 3.0) * Math.PI);
+            const spring = isPlaying ? Math.sin(Math.min(1, wordPhase * 3.0) * Math.PI) : 0;
             scaleMult = 1.08 + 0.10 * spring;
             bounceY = -6 * S * spring;
-            popRotate = (i % 2 === 0 ? -2 : 2) * (Math.PI / 180) * spring;
+            popRotate = isPlaying ? (i % 2 === 0 ? -2 : 2) * (Math.PI / 180) * spring : 0;
           } else if (['warna', 'sorot', 'kotak', 'lime', 'terbaca'].includes(P.mode) || ['sorot', 'lime', 'terbaca'].includes(activePreset)) {
-            const pulse = Math.sin(wordPhase * Math.PI);
+            const pulse = isPlaying ? Math.sin(wordPhase * Math.PI) : 0;
             scaleMult = 1.06 + 0.05 * pulse;
             bounceY = -3.5 * S * pulse;
           } else {
@@ -1587,9 +1572,9 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
           warna = '#111';
         }
 
-        // Neon Glow pulsing effect
+        // Neon Glow effect
         if (activePreset === 'neon' || P.judul === 'neon') {
-          const pulse = 10 + 6 * Math.sin(performance.now() / 160);
+          const pulse = isPlaying ? (10 + 6 * Math.sin(performance.now() / 160)) : 12;
           ctx.shadowColor = baseColor || '#ff4fa3';
           ctx.shadowBlur = (isAktif ? pulse * 1.8 : pulse * 0.8) * S;
           ctx.shadowOffsetY = 0;
@@ -1623,7 +1608,7 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
         const emojiChar = customStyle?.emoji || (autoEmoji ? getEmojiForWord(t) : null);
         if (emojiChar && (isAktif || i === kunciI || customStyle?.emoji)) {
           ctx.save();
-          const emBounceY = bounceY + (isAktif ? -10 * S - 3 * S * Math.sin(performance.now() / 180) : -4 * S);
+          const emBounceY = bounceY + (isAktif ? (isPlaying ? -10 * S - 3 * S * Math.sin(performance.now() / 180) : -8 * S) : -4 * S);
           ctx.font = `${uk * 0.95}px "Segoe UI Emoji", "Apple Color Emoji", sans-serif`;
           ctx.textAlign = 'center';
           const lw = lebar[i];
@@ -3782,9 +3767,9 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <div className="hidden sm:flex items-center gap-1.5 px-2 py-1 rounded-lg bg-emerald-950/50 border border-emerald-800/40 text-[10px] font-mono text-emerald-300">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                    <span>Subtitle Live</span>
+                  <div className="hidden sm:flex items-center gap-1.5 px-2 py-1 rounded-lg bg-cyan-950/50 border border-cyan-800/40 text-[10px] font-mono text-cyan-300">
+                    <span className={`w-1.5 h-1.5 rounded-full ${isVideoPlaying ? 'bg-emerald-400 animate-pulse' : 'bg-cyan-400'}`}></span>
+                    <span>{isVideoPlaying ? 'Subtitle Putar' : 'Subtitle Jeda'}</span>
                   </div>
 
                   <button
@@ -4006,17 +3991,14 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
                       </button>
                     </div>
 
-                    {/* Live Kinetic Status Indicator */}
+                    {/* Status Sinkronisasi Subtitle */}
                     <div className="flex items-center justify-between p-2.5 rounded-xl bg-cyan-950/40 border border-cyan-800/40 text-xs shadow-inner">
                       <div className="flex items-center gap-2">
-                        <span className="relative flex h-2 w-2">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                        </span>
-                        <span className="font-bold text-emerald-300 text-[11px]">Pratinjau Kinetik Aktif</span>
+                        <span className={`w-2 h-2 rounded-full ${isVideoPlaying ? 'bg-emerald-400 animate-ping' : 'bg-cyan-400'}`}></span>
+                        <span className="font-bold text-white text-[11px]">{isVideoPlaying ? 'Sinkron Audio (Berjalan)' : 'Jeda (Terkunci Sesuai Frame)'}</span>
                       </div>
                       <span className="text-[10px] font-mono text-cyan-300 bg-cyan-950/70 border border-cyan-800/50 px-2 py-0.5 rounded-full">
-                        {isVideoPlaying ? 'Sinkron Audio' : 'Animasi Live (60 FPS)'}
+                        {isVideoPlaying ? 'Live Audio Sync' : 'Jeda Bersama Video'}
                       </span>
                     </div>
 
