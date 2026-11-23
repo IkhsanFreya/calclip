@@ -1765,31 +1765,64 @@ def render(file: Path, klip: Klip, kal: list[Kalimat], out: Path, kerja: Path, w
 
     # audio: suara asli (boost) + musik latar + SFX hook
     masukan = ["-ss", f"{klip.mulai:.2f}", "-t", f"{durasi:.2f}", "-i", str(file.resolve()), *masukan_extra]
-    aud = [f"[0:a]volume={float(g.get('suara', 100)) / 100:.2f}[a0]"]
-    campur = ["[a0]"]
+
+    vol_suara = float(g.get("suara", 100)) / 100
+    filter_vokal = [f"volume={vol_suara:.2f}"]
+
+    # ── Skill: Audio Denoise & Voice Enhancement (Formula ffmpeg-skill) ──
+    # Menghilangkan sub-bass rumble/angin (<80Hz), desis mic (>12kHz), dan noise kontinu (afftdn)
+    if g.get("jernihkan_suara", True):
+        filter_vokal.extend(["highpass=f=80", "lowpass=f=12000", "afftdn=nf=-25"])
+
+    # ── Skill: Anti-Click Boundary Micro-Fade (Formula boundary snapping) ──
+    # Mencegah letupan suara/klik di awal dan akhir potongan klip
+    d_fade_out = max(durasi - 0.12, 0.0)
+    filter_vokal.extend(["afade=t=in:ss=0:d=0.08", f"afade=t=out:st={d_fade_out:.2f}:d=0.12"])
+
     idx = n_in
     musik = g.get("musik")
+    aud = []
+    campur = []
+
     if musik and Path(musik).exists():
         masukan += ["-stream_loop", "-1", "-i", str(Path(musik).resolve())]
         vol_m = float(g.get("volume_musik", 18)) / 100
-        aud.append(f"[{idx}:a]volume={vol_m:.2f},atrim=0:{durasi:.2f},"
-                   f"afade=t=out:st={max(durasi - 1.5, 0):.2f}:d=1.5[am_raw]")
         if g.get("audio_ducking", True):
-            aud.append("[am_raw][a0]sidechaincompress=threshold=0.08:ratio=4:attack=80:release=350[am]")
+            # Split stream vokal agar sidechaincompress dan amix menerima stream independen
+            aud.append(f"[0:a]{','.join(filter_vokal)},asplit=2[a0_mix][a0_sc]")
+            aud.append(f"[{idx}:a]volume={vol_m:.2f},atrim=0:{durasi:.2f},"
+                       f"afade=t=out:st={max(durasi - 1.5, 0):.2f}:d=1.5[am_raw]")
+            aud.append("[am_raw][a0_sc]sidechaincompress=threshold=0.08:ratio=4:attack=80:release=350[am]")
+            campur = ["[a0_mix]", "[am]"]
         else:
-            aud.append("[am_raw]anull[am]")
-        campur.append("[am]")
+            aud.append(f"[0:a]{','.join(filter_vokal)}[a0]")
+            aud.append(f"[{idx}:a]volume={vol_m:.2f},atrim=0:{durasi:.2f},"
+                       f"afade=t=out:st={max(durasi - 1.5, 0):.2f}:d=1.5[am]")
+            campur = ["[a0]", "[am]"]
         idx += 1
+    else:
+        aud.append(f"[0:a]{','.join(filter_vokal)}[a0]")
+        campur = ["[a0]"]
+
     sfx = g.get("sfx")
     if sfx and Path(sfx).exists():
         masukan += ["-i", str(Path(sfx).resolve())]
         aud.append(f"[{idx}:a]volume=0.9[as]")
         campur.append("[as]")
         idx += 1
+
+    # ── Skill: Broadcast Loudness Normalization EBU R128 (-14 LUFS, TP -1.0dB) ──
+    # Standar emas platform TikTok/Reels/Shorts agar vokal terdengar jernih, lantang, dan bebas distorsi
+    mastering_post = []
+    if g.get("normalisasi_loudness", True):
+        mastering_post.append("loudnorm=I=-14:TP=-1.0:LRA=11")
+    mastering_post.append("alimiter=limit=0.95")
+    str_post = ",".join(mastering_post)
+
     if len(campur) > 1:
-        aud.append(f"{''.join(campur)}amix=inputs={len(campur)}:duration=first:normalize=0,alimiter=limit=0.95[aout]")
+        aud.append(f"{''.join(campur)}amix=inputs={len(campur)}:duration=first:normalize=0,{str_post}[aout]")
     else:
-        aud.append("[a0]anull[aout]")
+        aud.append(f"{campur[0]}{str_post}[aout]")
 
     paksa_cpu = (g.get("encoder") == "cpu")
     enc_nama, enc_flags = deteksi_encoder_hw(paksa_cpu=paksa_cpu)

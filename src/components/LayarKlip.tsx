@@ -737,6 +737,8 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
   const [progressBarThickness, setProgressBarThickness] = useState<number>(8);
   const [autoMicroSfx, setAutoMicroSfx] = useState<boolean>(true);
   const [autoAudioDucking, setAutoAudioDucking] = useState<boolean>(true);
+  const [jernihkanSuara, setJernihkanSuara] = useState<boolean>(true);
+  const [normalisasiLoudness, setNormalisasiLoudness] = useState<boolean>(true);
   const [highlightColor, setHighlightColor] = useState<string>('#3DFF8A'); // default Hijau Viral
   const [customWordStyles, setCustomWordStyles] = useState<Record<string, { color?: string; emoji?: string }>>({});
   const [selectedWordForEdit, setSelectedWordForEdit] = useState<string | null>(null);
@@ -2076,6 +2078,8 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
             tebal_progress: progressBarThickness,
             sfx_mikro: autoMicroSfx,
             audio_ducking: autoAudioDucking,
+            jernihkan_suara: jernihkanSuara,
+            normalisasi_loudness: normalisasiLoudness,
             zoom_kata_kunci: zoomKeyphrase,
           },
           klip_edit: Object.fromEntries(
@@ -5088,6 +5092,38 @@ export const LayarKlip: React.FC<LayarKlipProps> = ({
                           type="checkbox"
                           checked={autoAudioDucking}
                           onChange={(e) => setAutoAudioDucking(e.target.checked)}
+                          className="accent-cyan-400 w-4 h-4 cursor-pointer"
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between pt-1 border-t border-slate-800/60">
+                        <div className="space-y-0.5">
+                          <div className="text-xs font-medium text-white flex items-center gap-1.5">
+                            <span>Jernihkan Suara AI (Denoise)</span>
+                            <span className="text-[9px] bg-cyan-950 text-cyan-400 px-1.5 py-0.5 rounded font-mono border border-cyan-800">Pro</span>
+                          </div>
+                          <div className="text-[10px] text-slate-400">Pembersih desis kipas & dengung mic otomatis (FFT Denoise)</div>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={jernihkanSuara}
+                          onChange={(e) => setJernihkanSuara(e.target.checked)}
+                          className="accent-cyan-400 w-4 h-4 cursor-pointer"
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between pt-1 border-t border-slate-800/60">
+                        <div className="space-y-0.5">
+                          <div className="text-xs font-medium text-white flex items-center gap-1.5">
+                            <span>Normalisasi Volume (EBU R128)</span>
+                            <span className="text-[9px] bg-emerald-950 text-emerald-400 px-1.5 py-0.5 rounded font-mono border border-emerald-800">-14 LUFS</span>
+                          </div>
+                          <div className="text-[10px] text-slate-400">Standar volume optimal TikTok/Shorts tanpa pecah/distorsi</div>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={normalisasiLoudness}
+                          onChange={(e) => setNormalisasiLoudness(e.target.checked)}
                           className="accent-cyan-400 w-4 h-4 cursor-pointer"
                         />
                       </div>
